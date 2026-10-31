@@ -1,0 +1,2140 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building Energy Audit & Solar Net-Metering Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* Print styles specifically tailored for A4 Audit Report hardcopy */
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+      /* If printing the official report */
+      body.printing-report #reportModal, body.printing-report #reportModal * {
+        visibility: visible !important;
+      }
+      body.printing-report #reportModal {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        z-index: 99999 !important;
+      }
+
+      /* If printing the visual dashboard */
+      body.printing-dashboard #dashboardModal, body.printing-dashboard #dashboardModal * {
+        visibility: visible !important;
+      }
+      body.printing-dashboard #dashboardModal {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        background: #090d16 !important;
+        color: #ffffff !important;
+        padding: 0.25in !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        z-index: 99999 !important;
+        display: block !important;
+      }
+      body.printing-dashboard #dashboardModal .bg-slate-900,
+      body.printing-dashboard #dashboardModal .bg-slate-950\/80 {
+        background-color: #0d1527 !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+      }
+
+      .no-print {
+        display: none !important;
+      }
+      .report-page {
+        page-break-after: auto !important;
+        background: #ffffff !important;
+        color: #0f172a !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0.5in !important;
+        margin: 0 !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-amber-400 selection:text-slate-950">
+
+  <!-- Header -->
+  <header class="bg-slate-900/95 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-4 lg:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-400 via-teal-400 to-cyan-400 flex items-center justify-center shadow-lg shadow-teal-500/20">
+          <svg class="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex flex-wrap items-center gap-2">
+            Building Energy Audit &amp; Solar Net-Metering Portal
+            <span class="inline-flex items-center gap-1.5 text-xs bg-amber-500/15 text-amber-300 font-semibold px-2.5 py-0.5 rounded-full border border-amber-500/40 shadow-sm shadow-amber-500/10">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              Built By Er. Pratik G. Patil (M-Tech AI &amp; DS)
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">Dynamic BHK Configurator | Attached Shop | Dual Motors (Palika + Borewell) | Date Range &amp; Progressive Tariffs</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 self-start md:self-auto">
+        <!-- New Primary Action: Interactive Dashboard -->
+        <button id="btnOpenDashboard" class="px-3.5 py-2 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-500/20">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"/></svg>
+          📊 View Dashboard
+        </button>
+
+        <!-- New Primary Action: Official Audit Report (Hard Copy / PDF) -->
+        <button id="btnOpenReport" class="px-3.5 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          📄 Export Audit Report
+        </button>
+
+        <!-- Technical Raw Data CSV (Retained for Power BI / Excel power users) -->
+        <button id="btnExportCSV" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          CSV
+        </button>
+
+        <!-- Reset Button -->
+        <button id="btnResetDefault" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-all flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Reset
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full space-y-6 flex-1">
+
+    <!-- Audit Site & Assessor Profile -->
+    <section class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+          <span class="p-1 rounded-lg bg-sky-500/10 text-sky-400">📋</span>
+          Audit Site &amp; Assessor Profile
+        </h2>
+        <span class="text-[11px] font-semibold text-sky-400 bg-sky-950/40 border border-sky-800/50 px-2.5 py-0.5 rounded">
+          Executive Survey Metadata
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Assessor / Auditor Name</label>
+          <input type="text" id="metaAssessorName" value="" placeholder="e.g., Enter assessor name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Role / Designation</label>
+          <select id="metaAssessorRole" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400">
+            <option value="" selected>-- Select Role / Designation --</option>
+            <option value="Energy Survey Assessor">Energy Survey Assessor</option>
+            <option value="Building Energy Analyst">Building Energy Analyst</option>
+            <option value="Student Energy Analyst / Project Lead">Student Energy Analyst / Project Lead</option>
+            <option value="Facility Assessor">Facility Assessor</option>
+            <option value="Resident / Homeowner">Resident / Homeowner</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Organization / Institute / Agency</label>
+          <input type="text" id="metaOrganization" value="" placeholder="e.g., Institute / Energy Audit Firm" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Site Location / City</label>
+          <input type="text" id="metaLocation" value="" placeholder="e.g., City, District, State" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Property / Premises Name</label>
+          <input type="text" id="metaPremisesName" value="" placeholder="e.g., Residential Complex / Commercial Building" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-400 font-semibold focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Client / Owner Name</label>
+          <input type="text" id="metaOwnerName" value="" placeholder="e.g., Enter client or owner name" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Premises Classification</label>
+          <select id="metaPropertyCategory" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-sky-400">
+            <option value="" selected>-- Select Classification --</option>
+            <option value="Mixed-Use (Residential + Commercial)">Mixed-Use (Residential + Commercial)</option>
+            <option value="Pure Residential (Single/Multi-Unit)">Pure Residential (Single/Multi-Unit)</option>
+            <option value="Commercial / Retail Store">Commercial / Retail Store</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">DISCOM Consumer / Meter ID <span class="text-slate-500 font-normal">(Optional)</span></label>
+          <input type="text" id="metaConsumerNo" value="" placeholder="e.g., 12-digit Consumer / Meter Account No." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-cyan-400 font-mono focus:outline-none focus:border-sky-400 placeholder-slate-600">
+        </div>
+      </div>
+    </section>
+
+    <!-- Top Config Row: Layout & Audit Date Range -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Architectural Room & BHK Configurator -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+              <span class="p-1 rounded-lg bg-cyan-500/10 text-cyan-400">🏠</span>
+              Architectural Room &amp; BHK Configurator
+            </h2>
+            <span class="text-[11px] font-semibold text-cyan-400 bg-cyan-950/40 border border-cyan-800/50 px-2 py-0.5 rounded">Dynamic Inventory</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">BHK Preset</label>
+              <select id="bhkPreset" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+                <option value="1">1 BHK</option>
+                <option value="2" selected>2 BHK</option>
+                <option value="3">3 BHK</option>
+                <option value="4">4 BHK</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Living Halls</label>
+              <input type="number" id="numHalls" min="1" max="4" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Bedrooms</label>
+              <input type="number" id="numBedrooms" min="1" max="6" value="2" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Kitchens</label>
+              <input type="number" id="numKitchens" min="1" max="3" value="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-cyan-400">
+            </div>
+          </div>
+
+          <div class="space-y-2 pt-2 border-t border-slate-800/80">
+            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="includeShop" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-cyan-500 focus:ring-0 accent-cyan-500">
+              <span>Include <strong>Attached Shop Room</strong> (Visi-Cooler, Cadbury Cooler, Fan, LED Battens, Bench)</span>
+            </label>
+            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
+              <input type="checkbox" id="includeUtilities" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-cyan-500 focus:ring-0 accent-cyan-500">
+              <span>Include <strong>Common Utilities</strong> (0.75 HP Palika Motor, 1.5 HP Borewell Submersible, Porch Lights)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="pt-4 mt-3">
+          <button id="btnApplyLayout" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Apply Layout &amp; Auto-Generate Inventory
+          </button>
+        </div>
+      </div>
+
+      <!-- Date Range & Billing Period Configurator -->
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+              <span class="p-1 rounded-lg bg-teal-500/10 text-teal-400">📅</span>
+              Audit Period &amp; Date Range Selector
+            </h2>
+            <div class="flex items-center gap-1.5 bg-teal-950/40 border border-teal-800/50 px-2.5 py-0.5 rounded text-xs font-mono text-teal-300">
+              <span>Billing Cycle:</span>
+              <strong id="badgeBillingDays" class="text-teal-400">30</strong>
+              <span>Days</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Audit Start Date</label>
+              <input type="date" id="auditStartDate" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal-400 font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Audit End Date</label>
+              <input type="date" id="auditEndDate" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal-400 font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Season Profile</label>
+              <select id="seasonProfile" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal-400">
+                <option value="Summer (Cooling Peak)">Summer (Peak Cooling)</option>
+                <option value="Monsoon (Standard)" selected>Monsoon (Standard Normal)</option>
+                <option value="Winter (Low Cooling)">Winter (Low Cooling)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1 text-xs text-slate-400">
+            <div class="flex justify-between items-center">
+              <span>Period Span:</span>
+              <span class="text-white font-medium" id="txtDateSummary">30 Days (Standard Month Cycle)</span>
+            </div>
+            <div class="flex justify-between items-center text-[11px] text-slate-500">
+              <span>Active Billing Normalization:</span>
+              <span class="text-teal-400 font-mono">Daily Consumptions × Days in Period</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 mt-3">
+          <div class="text-[11px] text-slate-400 text-center">
+            Changing the date range updates energy units, solar generation, and tariff slabs in real time.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Telescopic Progressive Tariff Engine & Solar Parameters -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <!-- Telescopic Slab Tariff Engine -->
+      <div class="bg-slate-900/90 border border-emerald-500/20 rounded-2xl p-5 shadow-lg">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+            <span class="p-1 rounded-lg bg-emerald-400/10 text-emerald-400">⚡</span>
+            Telescopic Slab Tariff Engine (Editable Rates)
+          </h2>
+          <span class="text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 px-2 py-0.5 rounded">Progressive Pricing</span>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-3">Adjust per-unit rates across usage brackets. Energy charges advance to higher tiers when thresholds are crossed:</p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold">Slab 1 (0–100 u)</div>
+            <div class="relative mt-1">
+              <input type="number" id="rateSlab1" step="0.05" min="1" value="4.75" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 focus:outline-none focus:border-emerald-400 font-mono font-bold">
+              <span class="absolute right-2 top-1 text-[11px] text-slate-500">₹/u</span>
+            </div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold">Slab 2 (101–300 u)</div>
+            <div class="relative mt-1">
+              <input type="number" id="rateSlab2" step="0.05" min="1" value="8.90" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 focus:outline-none focus:border-emerald-400 font-mono font-bold">
+              <span class="absolute right-2 top-1 text-[11px] text-slate-500">₹/u</span>
+            </div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold">Slab 3 (301–500 u)</div>
+            <div class="relative mt-1">
+              <input type="number" id="rateSlab3" step="0.05" min="1" value="12.20" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 focus:outline-none focus:border-emerald-400 font-mono font-bold">
+              <span class="absolute right-2 top-1 text-[11px] text-slate-500">₹/u</span>
+            </div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[11px] text-slate-400 uppercase font-semibold">Slab 4 (&gt; 500 u)</div>
+            <div class="relative mt-1">
+              <input type="number" id="rateSlab4" step="0.05" min="1" value="14.80" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-emerald-400 focus:outline-none focus:border-emerald-400 font-mono font-bold">
+              <span class="absolute right-2 top-1 text-[11px] text-slate-500">₹/u</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-800">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Fixed Charge (₹/kW/mo)</label>
+            <input type="number" id="fixedRatePerKW" min="0" step="5" value="125" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Electricity Duty / Tax</label>
+            <div class="relative">
+              <input type="number" id="taxPct" min="0" max="30" step="0.5" value="16.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono">
+              <span class="absolute right-2.5 top-1.5 text-xs text-slate-500">%</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Solar Feed-in Buyback</label>
+            <div class="relative">
+              <input type="number" id="feedInTariff" min="1" max="10" step="0.25" value="3.50" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-400 focus:outline-none focus:border-emerald-400 font-mono">
+              <span class="absolute right-2.5 top-1.5 text-xs text-slate-500">₹/u</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Solar PV & Net-Metering Configuration -->
+      <div class="bg-slate-900/90 border border-amber-500/20 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+              <span class="p-1 rounded-lg bg-amber-400/10 text-amber-400">☀️</span>
+              Solar Net-Metering &amp; Grid Sizing
+            </h2>
+            <div class="flex items-center gap-2">
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="toggleSolarActive" checked class="sr-only peer">
+                <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                <span class="ml-2 text-xs font-semibold text-amber-400" id="solarStatusLabel">Active</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Sanctioned Utility Load</label>
+              <div class="relative">
+                <input type="number" id="sanctionedLoad" min="2" max="25" step="0.5" value="8.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono">
+                <span class="absolute right-2.5 top-1.5 text-xs text-slate-500">kW</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Solar PV Capacity</label>
+              <div class="relative">
+                <input type="number" id="solarCapacity" min="0" max="20" step="0.5" value="3.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-400 focus:outline-none focus:border-amber-400 font-mono">
+                <span class="absolute right-2.5 top-1.5 text-xs text-slate-500">kWp</span>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Daily Solar Yield</label>
+              <div class="relative">
+                <input type="number" id="solarYield" min="2.5" max="6.0" step="0.1" value="4.0" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono">
+                <span class="absolute right-2.5 top-1.5 text-xs text-slate-500">kWh/kWp</span>
+              </div>
+            </div>
+            <div class="col-span-2 sm:col-span-3">
+              <label class="block text-xs font-medium text-slate-400 mb-1">On-Site Direct Solar Self-Consumption Ratio</label>
+              <div class="flex items-center gap-3">
+                <input type="range" id="selfUseSlider" min="15" max="85" step="5" value="45" class="w-full accent-amber-400 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                <span class="text-xs font-mono font-bold text-amber-400 w-12 text-right" id="lblSelfUsePct">45%</span>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-1">Remaining solar generation is injected into the Municipal / Utility grid via the bi-directional net meter.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-amber-950/20 border border-amber-900/40 rounded-xl mt-3 flex items-center justify-between text-xs">
+          <span class="text-slate-300">Expected Generation for Audit Period:</span>
+          <span class="font-bold text-amber-400 font-mono" id="valEstimatedSolarPeriod">360 kWh</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Real-Time KPI Cards Grid -->
+    <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 mb-1">
+          <span class="text-[11px] font-medium uppercase tracking-wider">Connected Load</span>
+          <span class="text-base">🔌</span>
+        </div>
+        <div class="text-xl font-extrabold text-white" id="kpiConnectedLoad">0.00 <span class="text-xs font-normal text-slate-400">kW</span></div>
+        <div class="text-[10px] text-slate-500 mt-0.5">Sum of all active appliances</div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 mb-1">
+          <span class="text-[11px] font-medium uppercase tracking-wider">Gross Demand</span>
+          <span class="text-base">🏠</span>
+        </div>
+        <div class="text-xl font-extrabold text-cyan-400" id="kpiGrossDemand">0 <span class="text-xs font-normal text-slate-400">kWh</span></div>
+        <div class="text-[10px] text-slate-500 mt-0.5" id="kpiDailyDemand">0.0 kWh/day</div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 mb-1">
+          <span class="text-[11px] font-medium uppercase tracking-wider">Solar Generation</span>
+          <span class="text-base">☀️</span>
+        </div>
+        <div class="text-xl font-extrabold text-amber-400" id="kpiSolarGen">0 <span class="text-xs font-normal text-slate-400">kWh</span></div>
+        <div class="text-[10px] text-slate-500 mt-0.5" id="kpiSolarSub">Self: 0 | Export: 0</div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 mb-1">
+          <span class="text-[11px] font-medium uppercase tracking-wider">Sent to Utility</span>
+          <span class="text-base">📤</span>
+        </div>
+        <div class="text-xl font-extrabold text-sky-400" id="kpiGridExport">0 <span class="text-xs font-normal text-slate-400">kWh</span></div>
+        <div class="text-[10px] text-sky-500/80 mt-0.5">Surplus solar export</div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div class="flex items-center justify-between text-slate-400 mb-1">
+          <span class="text-[11px] font-medium uppercase tracking-wider">Drawn from Grid</span>
+          <span class="text-base">📥</span>
+        </div>
+        <div class="text-xl font-extrabold text-rose-400" id="kpiGridImport">0 <span class="text-xs font-normal text-slate-400">kWh</span></div>
+        <div class="text-[10px] text-slate-500 mt-0.5">Night &amp; off-peak draw</div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-emerald-500/30 rounded-2xl p-3.5 shadow-sm bg-gradient-to-b from-emerald-950/20 to-transparent">
+        <div class="flex items-center justify-between text-emerald-400 mb-1">
+          <span class="text-[11px] font-semibold uppercase tracking-wider">Net Bill Settled</span>
+          <span class="text-base">⚖️</span>
+        </div>
+        <div class="text-xl font-extrabold text-emerald-400 font-mono" id="kpiNetBillAmount">₹0</div>
+        <div class="text-[10px] text-slate-300 mt-0.5" id="kpiNetBilledSub">0 Net Billed Units</div>
+      </div>
+    </section>
+
+    <!-- Telescopic Slab Consumption Summary Breakdown -->
+    <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="font-bold text-slate-300">Telescopic Slab Cost Breakdown:</span>
+          <span class="text-slate-400" id="lblGridImportExplanation">Calculating imported slab steps...</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-4 text-slate-400 font-mono">
+          <span>Fixed Charge: <strong class="text-white" id="txtFixedCharge">₹0</strong></span>
+          <span>Duty (16%): <strong class="text-white" id="txtDutyCharge">₹0</strong></span>
+          <span>Export Credit: <strong class="text-amber-400" id="txtExportCredit">-₹0</strong></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Add Individual Custom Appliance Form -->
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-md">
+      <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-sm md:text-base font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Add Individual Custom Appliance
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">Log additional appliances like desert air coolers, room heaters, or workshop machinery</p>
+        </div>
+      </div>
+
+      <form id="customItemForm" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3 items-end">
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-slate-400 mb-1">Zone / Room</label>
+          <select id="newZone" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400">
+            <option value="Home Living & Halls">Home Living &amp; Halls</option>
+            <option value="Home Bedrooms">Home Bedrooms</option>
+            <option value="Home Kitchen">Home Kitchen</option>
+            <option value="Attached Shop Room">Attached Shop Room</option>
+            <option value="Common & Utility Infrastructure">Common &amp; Utility Infrastructure</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-slate-400 mb-1">Appliance Name</label>
+          <input type="text" id="newName" placeholder="e.g. Desert Air Cooler (Metal)" required class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Category</label>
+          <select id="newCategory" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400">
+            <option value="Cooling & Ventilation">Cooling &amp; Ventilation</option>
+            <option value="Refrigeration">Refrigeration</option>
+            <option value="Water Pumping">Water Pumping</option>
+            <option value="Lighting">Lighting</option>
+            <option value="Water Heating">Water Heating</option>
+            <option value="Electronics & Other">Electronics &amp; Other</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Watts (W)</label>
+          <input type="number" id="newWatts" value="180" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1">Qty</label>
+          <input type="number" id="newQty" value="1" min="1" max="20" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-400 font-mono">
+        </div>
+        <div>
+          <button type="submit" class="w-full py-1.5 px-3 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20">
+            ➕ Add
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Appliance Audit Inventory Table -->
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 shadow-md space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            Building Energy Audit Inventory (<span id="recordCount">0</span> Items)
+          </h2>
+          <p class="text-xs text-slate-400">Normalized to current billing period (<span id="txtTableDays">30</span> days)</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-950/80 text-[11px] text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="py-3 px-3">Zone</th>
+              <th class="py-3 px-3">Appliance Name</th>
+              <th class="py-3 px-3">Category</th>
+              <th class="py-3 px-2 text-center">Qty</th>
+              <th class="py-3 px-2 text-right">Watts</th>
+              <th class="py-3 px-2 text-right">Hrs/Day</th>
+              <th class="py-3 px-2 text-right">Duty</th>
+              <th class="py-3 px-3 text-right">Load (kW)</th>
+              <th class="py-3 px-3 text-right">Daily (kWh)</th>
+              <th class="py-3 px-3 text-right text-cyan-400 font-semibold">Period (kWh)</th>
+              <th class="py-3 px-3">Proposed ECM</th>
+              <th class="py-3 px-2 text-right text-emerald-400 font-semibold">Savings (kWh)</th>
+              <th class="py-3 px-2 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryTableBody" class="divide-y divide-slate-800/60 font-normal">
+            <!-- Populated dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL 1: INTERACTIVE ANALYTICS DASHBOARD ==================== -->
+  <div id="dashboardModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-6 hidden">
+    <div id="dashboardCaptureContainer" class="bg-slate-900 border border-slate-700 rounded-2xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden relative">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 no-print">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-lg">📊</div>
+          <div>
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+              Interactive Energy Analytics Dashboard
+              <span class="text-[10px] font-mono bg-cyan-950/60 text-cyan-400 border border-cyan-800/60 px-2 py-0.5 rounded">Visual BI</span>
+            </h3>
+            <p class="text-xs text-slate-400">Visual Breakdown for Homeowner &amp; Facility Decision Makers</p>
+          </div>
+        </div>
+        
+        <!-- Dashboard Download & Action Buttons -->
+        <div class="flex items-center gap-2">
+          <button id="btnDownloadDashboardPNG" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 transition-all flex items-center gap-1.5 shadow-md shadow-cyan-500/20" title="Download High-Res PNG Image">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span id="txtBtnPNG">Download PNG</span>
+          </button>
+          <button id="btnPrintDashboard" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all flex items-center gap-1.5" title="Print or Save as Landscape PDF">
+            <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print / PDF
+          </button>
+          <button id="btnCloseDashboard" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable & Captured) -->
+      <div id="dashboardPrintArea" class="p-6 space-y-6 overflow-y-auto flex-1 bg-slate-900">
+        <!-- Site & Owner Metadata Banner for Downloaded Dashboard -->
+        <div class="p-3.5 bg-slate-950/90 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div>
+            <span class="text-slate-400">Premises / Property:</span>
+            <strong id="dashPremisesName" class="text-white ml-1">Building Audit</strong>
+            <span class="text-slate-600 mx-2">|</span>
+            <span class="text-slate-400">Client:</span>
+            <strong id="dashClientName" class="text-slate-200 ml-1">Client</strong>
+          </div>
+          <div class="text-slate-400 text-[11px] font-mono">
+            <span id="dashPeriodSpan">30-Day Period</span> • <span class="text-cyan-400">Portal by Er. Pratik G. Patil</span>
+          </div>
+        </div>
+
+        <!-- Quick Insight KPI Ribbon -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase font-medium">Solar Coverage Ratio</span>
+            <div class="text-xl font-bold text-amber-400 mt-1" id="dashSolarCoverage">0%</div>
+            <span class="text-[10px] text-slate-500">Gross demand offset</span>
+          </div>
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase font-medium">Estimated Monthly Savings</span>
+            <div class="text-xl font-bold text-emerald-400 font-mono mt-1" id="dashMonthlySavings">₹0</div>
+            <span class="text-[10px] text-slate-500">From Solar + Proposed ECMs</span>
+          </div>
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase font-medium">Annual Bill Protection</span>
+            <div class="text-xl font-bold text-cyan-400 font-mono mt-1" id="dashAnnualSavings">₹0</div>
+            <span class="text-[10px] text-slate-500">Projected 12-month savings</span>
+          </div>
+          <div class="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+            <span class="text-[11px] text-slate-400 uppercase font-medium">Blended Unit Tariff</span>
+            <div class="text-xl font-bold text-rose-400 font-mono mt-1" id="dashBlendedRate">₹0.00/u</div>
+            <span class="text-[10px] text-slate-500">Effective grid draw cost</span>
+          </div>
+        </div>
+
+        <!-- Charts Grid (Chart.js) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Donut Chart: Category Energy Share -->
+          <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold text-white uppercase tracking-wider">End-Use Category Consumption</h4>
+              <span class="text-[11px] text-slate-400 font-mono">kWh/Period</span>
+            </div>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="chartCategory"></canvas>
+            </div>
+          </div>
+
+          <!-- Stacked Bar Chart: Energy Source & Solar Flow -->
+          <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="text-xs font-bold text-white uppercase tracking-wider">Energy Balance &amp; Solar Flow</h4>
+              <span class="text-[11px] text-slate-400 font-mono">kWh Comparison</span>
+            </div>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="chartBalance"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Payback Matrix -->
+        <div class="bg-slate-950/80 p-4 rounded-xl border border-slate-800">
+          <h4 class="text-xs font-bold text-white uppercase tracking-wider mb-2">Energy Conservation Measure (ECM) Payback Breakdown</h4>
+          <p class="text-xs text-slate-400 mb-3">Estimated return on investment by retrofitting high-consumption appliances with modern BEE 5-Star / BLDC alternatives:</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="text-[11px] text-slate-400 uppercase border-b border-slate-800">
+                <tr>
+                  <th class="py-2 px-2">Appliance Zone</th>
+                  <th class="py-2 px-2">Proposed Efficient Retrofit</th>
+                  <th class="py-2 px-2 text-right">Period Savings</th>
+                  <th class="py-2 px-2 text-right">Est. Investment</th>
+                  <th class="py-2 px-2 text-right text-emerald-400">Est. Payback</th>
+                </tr>
+              </thead>
+              <tbody id="dashPaybackTable" class="divide-y divide-slate-800/60">
+                <!-- Dynamically populated -->
+              </tbody>
+      // Modal Footer
+      <div class="px-6 py-3 border-t border-slate-800 flex items-center justify-between bg-slate-900/80 text-xs no-print">
+        <span class="text-slate-500">Live data synchronized with current audit form parameters</span>
+        <button id="btnSwitchToReport" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold transition-all flex items-center gap-1.5">
+          📄 Switch to Official Printable Report &rarr;
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Download Toast Notification -->
+  <div id="downloadToast" class="fixed bottom-6 right-6 z-50 bg-slate-800 text-white border border-cyan-500/40 px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div id="toastSpinner" class="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+    <span id="toastMsg">Generating high-resolution snapshot...</span>
+  </div>
+
+  <!-- ==================== MODAL 2: OFFICIAL PRINTABLE AUDIT REPORT ==================== -->
+  <div id="reportModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-2 sm:p-4 hidden overflow-y-auto">
+    <div class="bg-white text-slate-900 rounded-2xl max-w-4xl w-full my-auto shadow-2xl flex flex-col overflow-hidden max-h-[95vh]">
+      <!-- Report Modal Action Bar (Hidden when printed) -->
+      <div class="no-print bg-slate-900 text-white px-6 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-emerald-400 text-lg">📄</span>
+          <div>
+            <span class="text-xs font-bold text-white uppercase tracking-wider">Executive Energy Audit &amp; Solar Net-Metering Report</span>
+            <p class="text-[11px] text-slate-400">Ready for Physical Filing, DISCOM Submission &amp; Green Energy Documentation</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnPrintReport" class="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all flex items-center gap-1.5 shadow-md">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+            Print / Save as PDF
+          </button>
+          <button id="btnCloseReport" class="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable Document Container (Styled cleanly for A4 White Paper) -->
+      <div class="report-page p-8 sm:p-10 space-y-6 overflow-y-auto flex-1 bg-white text-slate-900 leading-relaxed text-xs">
+        <!-- Letterhead Header -->
+        <div class="border-b-2 border-slate-900 pb-4 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div>
+            <div class="inline-block text-[10px] font-extrabold uppercase tracking-widest bg-slate-900 text-amber-400 px-2 py-0.5 rounded mb-1">
+              Building Energy Audit &amp; Solar Net-Metering Portal
+            </div>
+            <h1 class="text-xl sm:text-2xl font-black text-slate-950 uppercase tracking-tight">Energy Audit &amp; Solar Feasibility Report</h1>
+            <p class="text-slate-600 font-medium text-xs mt-0.5">Appliance Load Survey, Telescopic Slab Tariff Analysis &amp; Rooftop Solar Net-Metering</p>
+          </div>
+          <div class="text-right sm:border-l sm:border-slate-300 sm:pl-4">
+            <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Portal Designed &amp; Developed By:</div>
+            <div class="text-sm font-extrabold text-blue-900">Er. Pratik G. Patil</div>
+            <div class="text-[11px] font-semibold text-slate-600">M-Tech (AI &amp; DS) | Application Architect</div>
+            <div class="text-[10px] text-slate-500 font-mono mt-0.5">Contact: +91 9172737464</div>
+          </div>
+        </div>
+
+        <!-- Metadata Information Blocks -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Premises Name</span>
+            <span id="repPremises" class="font-bold text-slate-900 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Client / Owner</span>
+            <span id="repClient" class="font-bold text-slate-900 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Site Location</span>
+            <span id="repLocation" class="font-semibold text-slate-800 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Premises Type</span>
+            <span id="repClassification" class="font-semibold text-slate-800 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">DISCOM / Meter ID</span>
+            <span id="repConsumerID" class="font-mono font-bold text-blue-900 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Survey Assessor / Auditor</span>
+            <span id="repAssessorOrg" class="font-semibold text-slate-800 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Audit Date Span</span>
+            <span id="repPeriodSpan" class="font-semibold text-slate-800 text-xs">--</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Billing Span / Season</span>
+            <span id="repBillingDays" class="font-semibold text-slate-800 text-xs">30 Days</span>
+          </div>
+        </div>
+
+        <!-- Executive Financial & Energy Key Performance Indicators -->
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2.5">
+            1. Energy Flow &amp; Financial Summary (Billing Period)
+          </h2>
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div class="p-2.5 bg-slate-100 rounded-lg border border-slate-200">
+              <span class="text-[10px] text-slate-600 block">Connected Load</span>
+              <span id="repConnectedLoad" class="text-sm font-bold text-slate-900">0.00 kW</span>
+            </div>
+            <div class="p-2.5 bg-slate-100 rounded-lg border border-slate-200">
+              <span class="text-[10px] text-slate-600 block">Gross Demand</span>
+              <span id="repGrossDemand" class="text-sm font-bold text-slate-900">0 kWh</span>
+            </div>
+            <div class="p-2.5 bg-amber-50 rounded-lg border border-amber-200">
+              <span class="text-[10px] text-amber-800 block">Solar Generation</span>
+              <span id="repSolarGen" class="text-sm font-bold text-amber-900">0 kWh</span>
+            </div>
+            <div class="p-2.5 bg-sky-50 rounded-lg border border-sky-200">
+              <span class="text-[10px] text-sky-800 block">Grid Exported</span>
+              <span id="repGridExport" class="text-sm font-bold text-sky-900">0 kWh</span>
+            </div>
+            <div class="p-2.5 bg-rose-50 rounded-lg border border-rose-200">
+              <span class="text-[10px] text-rose-800 block">Grid Imported</span>
+              <span id="repGridImport" class="text-sm font-bold text-rose-900">0 kWh</span>
+            </div>
+            <div class="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
+              <span class="text-[10px] text-emerald-800 block">Settled Net Bill</span>
+              <span id="repNetBill" class="text-sm font-extrabold text-emerald-900">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telescopic Slab Tariff Settlement Table -->
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2">
+            2. Progressive Telescopic Tariff Breakdown
+          </h2>
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-[11px]">
+            <div class="flex justify-between items-center text-slate-700">
+              <span>Energy Charges on Grid Imported Units:</span>
+              <span id="repTariffFormula" class="font-mono font-medium text-slate-900">Calculating...</span>
+            </div>
+            <div class="flex justify-between items-center border-t border-slate-200 pt-1 text-slate-700">
+              <span>Fixed Demand Charges + Electricity Duty:</span>
+              <span id="repFixedDutyTotal" class="font-mono font-medium text-slate-900">₹0</span>
+            </div>
+            <div class="flex justify-between items-center text-amber-700">
+              <span>Solar Export Buyback Credit (Injected Surplus):</span>
+              <span id="repSolarCredit" class="font-mono font-bold text-amber-800">-₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Appliance Audit & ECM Recommendations Table -->
+        <div>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-900 border-b border-slate-300 pb-1 mb-2">
+            3. Detailed Audit Inventory &amp; Proposed Energy Conservation Measures (ECMs)
+          </h2>
+          <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-[11px] divide-y divide-slate-200">
+              <thead class="bg-slate-100 text-slate-700 font-bold uppercase text-[10px]">
+                <tr>
+                  <th class="p-2">Zone</th>
+                  <th class="p-2">Appliance</th>
+                  <th class="p-2 text-center">Qty</th>
+                  <th class="p-2 text-right">Rated W</th>
+                  <th class="p-2 text-right">Hrs/Day</th>
+                  <th class="p-2 text-right">Load (kW)</th>
+                  <th class="p-2 text-right">Period (kWh)</th>
+                  <th class="p-2">Proposed Efficient ECM</th>
+                  <th class="p-2 text-right font-bold text-emerald-700">Savings (kWh)</th>
+                </tr>
+              </thead>
+              <tbody id="repInventoryTable" class="divide-y divide-slate-100 font-normal">
+                <!-- Dynamically Populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Assessor Statement, Acceptance & Signatures -->
+        <div class="pt-6 border-t-2 border-slate-900 grid grid-cols-2 gap-8 text-[11px]">
+          <div>
+            <div class="font-bold text-slate-900 uppercase">Audit Assessment &amp; Survey Statement</div>
+            <p class="text-slate-600 mt-1">This document summarizes empirical equipment loads, estimated operational duty cycles, and rooftop solar net-metering projections calculated via the portal. Findings are intended for energy budgeting, retrofit planning, and efficiency analysis.</p>
+            <div class="mt-6 border-t border-dashed border-slate-400 pt-1">
+              <div class="font-bold text-slate-900" id="repSignAssessorName">Survey Assessor Signature</div>
+              <div class="text-[10px] text-slate-500" id="repSignAssessorRole">Field Surveyor / Energy Auditor</div>
+            </div>
+          </div>
+          <div>
+            <div class="font-bold text-slate-900 uppercase">Client / Premises Owner Acceptance</div>
+            <p class="text-slate-600 mt-1">I acknowledge receipt and review of this energy audit report, including baseline electrical loads, estimated solar net-metering offsets, and recommended energy conservation measures (ECMs).</p>
+            <div class="mt-6 border-t border-dashed border-slate-400 pt-1 flex justify-between">
+              <div>
+                <div class="font-bold text-slate-900" id="repSignOwnerName">Authorized Signature</div>
+                <div class="text-[10px] text-slate-500">Premises Owner / Client Representative</div>
+              </div>
+              <div class="text-right">
+                <span class="text-[10px] text-slate-400">Date: ____________</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 text-[10px] text-slate-400 text-center border-t border-slate-100">
+          Portal Engineered &amp; Built by Er. Pratik G. Patil (M-Tech AI &amp; DS) • Web-Based Energy Audit &amp; Net-Metering Engine
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-slate-950 border-t border-slate-900 py-4 px-4 text-center text-xs text-slate-400 space-y-1">
+    <div class="flex flex-wrap items-center justify-center gap-2 font-medium">
+      <span class="text-slate-300 font-semibold">Building Energy Audit &amp; Solar Net-Metering Portal</span>
+      <span class="text-slate-600 hidden sm:inline">•</span>
+      <span class="text-amber-400 font-medium">Designed &amp; Developed by Er. Pratik G. Patil (M-Tech AI &amp; DS)</span>
+      <span class="text-slate-600 hidden sm:inline">•</span>
+      <a href="tel:+919172737464" class="text-cyan-400 hover:text-cyan-300 font-mono transition-colors">📱 +91 9172737464</a>
+    </div>
+    <div class="text-[11px] text-slate-500">
+      Telescopic Progressive Slab Engine | On-Site Net-Metering Matrix | Instant Visual Dashboard &amp; Hard Copy Audit Report
+    </div>
+  </footer>
+
+  <script>
+    let inventory = [];
+    let chartCategoryInstance = null;
+    let chartBalanceInstance = null;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initDatePickers();
+      bindEvents();
+      bindModalEvents();
+      generateLayoutInventory();
+    });
+
+    function initDatePickers() {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(end.getDate() - 30);
+
+      document.getElementById("auditStartDate").value = formatDate(start);
+      document.getElementById("auditEndDate").value = formatDate(end);
+      updateDateRangeCalculations();
+    }
+
+    function formatDate(d) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getBillingDays() {
+      const startVal = document.getElementById("auditStartDate").value;
+      const endVal = document.getElementById("auditEndDate").value;
+      if (!startVal || !endVal) return 30;
+
+      const d1 = new Date(startVal);
+      const d2 = new Date(endVal);
+      const diffTime = d2.getTime() - d1.getTime();
+      const days = Math.round(diffTime / (1000 * 3600 * 24));
+      return days > 0 ? days : 1;
+    }
+
+    function updateDateRangeCalculations() {
+      const days = getBillingDays();
+      document.getElementById("badgeBillingDays").textContent = days;
+      document.getElementById("txtDateSummary").textContent = `${days} Days (${document.getElementById("seasonProfile").value})`;
+      document.getElementById("txtTableDays").textContent = days;
+    }
+
+    function bindEvents() {
+      document.getElementById("bhkPreset").addEventListener("change", handleBHKPresetChange);
+      document.getElementById("btnApplyLayout").addEventListener("click", generateLayoutInventory);
+
+      document.getElementById("btnResetDefault").addEventListener("click", () => {
+        // Clear all profile & site metadata inputs
+        document.getElementById("metaAssessorName").value = "";
+        document.getElementById("metaAssessorRole").value = "";
+        document.getElementById("metaOrganization").value = "";
+        document.getElementById("metaLocation").value = "";
+        document.getElementById("metaPremisesName").value = "";
+        document.getElementById("metaOwnerName").value = "";
+        document.getElementById("metaPropertyCategory").value = "";
+        document.getElementById("metaConsumerNo").value = "";
+
+        // Reset configuration defaults
+        document.getElementById("bhkPreset").value = "2";
+        handleBHKPresetChange();
+        initDatePickers();
+        generateLayoutInventory();
+      });
+
+      document.getElementById("btnExportCSV").addEventListener("click", exportPowerBICSV);
+
+      document.getElementById("auditStartDate").addEventListener("change", () => {
+        updateDateRangeCalculations();
+        renderTable();
+        recalculate();
+      });
+      document.getElementById("auditEndDate").addEventListener("change", () => {
+        updateDateRangeCalculations();
+        renderTable();
+        recalculate();
+      });
+      document.getElementById("seasonProfile").addEventListener("change", () => {
+        updateDateRangeCalculations();
+        recalculate();
+      });
+
+      document.getElementById("toggleSolarActive").addEventListener("change", (e) => {
+        const active = e.target.checked;
+        document.getElementById("solarStatusLabel").textContent = active ? "Active" : "Disabled";
+        document.getElementById("solarStatusLabel").className = active ? "ml-2 text-xs font-semibold text-amber-400" : "ml-2 text-xs font-semibold text-slate-500";
+        recalculate();
+      });
+
+      document.getElementById("selfUseSlider").addEventListener("input", (e) => {
+        document.getElementById("lblSelfUsePct").textContent = `${e.target.value}%`;
+        recalculate();
+      });
+
+      [
+        "rateSlab1", "rateSlab2", "rateSlab3", "rateSlab4", 
+        "fixedRatePerKW", "taxPct", "feedInTariff",
+        "sanctionedLoad", "solarCapacity", "solarYield"
+      ].forEach(id => {
+        document.getElementById(id).addEventListener("input", recalculate);
+      });
+
+      document.getElementById("customItemForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        addCustomItem();
+      });
+    }
+
+    function bindModalEvents() {
+      // Dashboard Modal Toggles
+      document.getElementById("btnOpenDashboard").addEventListener("click", openDashboardModal);
+      document.getElementById("btnCloseDashboard").addEventListener("click", () => {
+        document.getElementById("dashboardModal").classList.add("hidden");
+      });
+
+      // Report Modal Toggles
+      document.getElementById("btnOpenReport").addEventListener("click", openReportModal);
+      document.getElementById("btnCloseReport").addEventListener("click", () => {
+        document.getElementById("reportModal").classList.add("hidden");
+      });
+
+      // Switch from Dashboard directly to Report
+      document.getElementById("btnSwitchToReport").addEventListener("click", () => {
+        document.getElementById("dashboardModal").classList.add("hidden");
+        openReportModal();
+      });
+
+      // Download Dashboard as PNG
+      document.getElementById("btnDownloadDashboardPNG").addEventListener("click", downloadDashboardPNG);
+
+      // Print / PDF Dashboard
+      document.getElementById("btnPrintDashboard").addEventListener("click", () => {
+        document.body.classList.remove("printing-report");
+        document.body.classList.add("printing-dashboard");
+        window.print();
+        setTimeout(() => {
+          document.body.classList.remove("printing-dashboard");
+        }, 1000);
+      });
+
+      // Print Report
+      document.getElementById("btnPrintReport").addEventListener("click", () => {
+        document.body.classList.remove("printing-dashboard");
+        document.body.classList.add("printing-report");
+        window.print();
+        setTimeout(() => {
+          document.body.classList.remove("printing-report");
+        }, 1000);
+      });
+
+      // Close modals when clicking backdrop
+      window.addEventListener("click", (e) => {
+        const dash = document.getElementById("dashboardModal");
+        const rep = document.getElementById("reportModal");
+        if (e.target === dash) dash.classList.add("hidden");
+        if (e.target === rep) rep.classList.add("hidden");
+      });
+    }
+
+    function openDashboardModal() {
+      document.getElementById("dashboardModal").classList.remove("hidden");
+      renderDashboardAnalytics();
+    }
+
+    function renderDashboardAnalytics() {
+      const billingDays = getBillingDays();
+      let totalConnectedKW = 0;
+      let totalDailyDemandKWh = 0;
+      const categoryTotals = {};
+      let totalECMPeriodSavings = 0;
+
+      inventory.forEach(item => {
+        const kw = (item.qty * item.watts) / 1000;
+        const dailyKWh = kw * item.hours * item.duty;
+        const periodKWh = dailyKWh * billingDays;
+
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
+        totalECMPeriodSavings += Math.max(0, periodKWh - propPeriodKWh);
+
+        totalConnectedKW += kw;
+        totalDailyDemandKWh += dailyKWh;
+        categoryTotals[item.category] = (categoryTotals[item.category] || 0) + periodKWh;
+      });
+
+      const totalPeriodDemandKWh = totalDailyDemandKWh * billingDays;
+      const isSolarActive = document.getElementById("toggleSolarActive").checked;
+      const solarCapacityKWp = parseFloat(document.getElementById("solarCapacity").value) || 0;
+      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
+      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
+
+      let periodSolarGenKWh = 0;
+      let solarOnSiteKWh = 0;
+      let solarExportedKWh = 0;
+
+      if (isSolarActive && solarCapacityKWp > 0) {
+        periodSolarGenKWh = solarCapacityKWp * solarYield * billingDays;
+        const potentialSelfUse = periodSolarGenKWh * (selfUsePct / 100);
+        solarOnSiteKWh = Math.min(potentialSelfUse, totalPeriodDemandKWh);
+        solarExportedKWh = Math.max(0, periodSolarGenKWh - solarOnSiteKWh);
+      }
+
+      const gridImportedKWh = Math.max(0, totalPeriodDemandKWh - solarOnSiteKWh);
+
+      // Telescopic Rates
+      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
+      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
+      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
+      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
+      const feedInRate = parseFloat(document.getElementById("feedInTariff").value) || 3.50;
+      const fixedRatePerKW = parseFloat(document.getElementById("fixedRatePerKW").value) || 125;
+      const sanctionedLoadKW = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
+      const taxRate = (parseFloat(document.getElementById("taxPct").value) || 16.0) / 100;
+
+      // Without solar baseline calculation
+      const baselineSlab = calculateTelescopicCharges(totalPeriodDemandKWh, r1, r2, r3, r4);
+      const fixedChargeINR = sanctionedLoadKW * fixedRatePerKW * (billingDays / 30);
+      const baselineDuty = (baselineSlab.energyCharge + fixedChargeINR) * taxRate;
+      const baselineTotalINR = baselineSlab.energyCharge + fixedChargeINR + baselineDuty;
+
+      // With solar calculation
+      const currentSlab = calculateTelescopicCharges(gridImportedKWh, r1, r2, r3, r4);
+      const currentDuty = (currentSlab.energyCharge + fixedChargeINR) * taxRate;
+      const solarExportCreditINR = solarExportedKWh * feedInRate;
+      const finalNetBillINR = Math.max(0, (currentSlab.energyCharge + fixedChargeINR + currentDuty) - solarExportCreditINR);
+
+      // Financial Savings
+      const blendedRate = totalPeriodDemandKWh > 0 ? (baselineTotalINR / totalPeriodDemandKWh) : 8.5;
+      const periodSolarSavingsINR = Math.max(0, baselineTotalINR - finalNetBillINR);
+      const periodECMSavingsINR = totalECMPeriodSavings * blendedRate;
+      const totalPeriodSavingsINR = periodSolarSavingsINR + periodECMSavingsINR;
+
+      const monthlyEstimatedSavings = Math.round(totalPeriodSavingsINR * (30 / billingDays));
+      const annualEstimatedSavings = monthlyEstimatedSavings * 12;
+
+      const coverageRatio = totalPeriodDemandKWh > 0 ? Math.min(100, Math.round((periodSolarGenKWh / totalPeriodDemandKWh) * 100)) : 0;
+      const effectiveBlendedRate = gridImportedKWh > 0 ? (finalNetBillINR / gridImportedKWh).toFixed(2) : "0.00";
+
+      // Fill Dashboard Header Metadata
+      const premises = document.getElementById("metaPremisesName").value.trim() || "Building Audit";
+      const client = document.getElementById("metaOwnerName").value.trim() || "Premises Owner";
+      const start = document.getElementById("auditStartDate").value || "";
+      const end = document.getElementById("auditEndDate").value || "";
+      document.getElementById("dashPremisesName").textContent = premises;
+      document.getElementById("dashClientName").textContent = client;
+      document.getElementById("dashPeriodSpan").textContent = `${billingDays} Days (${start} to ${end})`;
+
+      // Fill Dashboard KPIs
+      document.getElementById("dashSolarCoverage").textContent = `${coverageRatio}%`;
+      document.getElementById("dashMonthlySavings").textContent = `₹${monthlyEstimatedSavings.toLocaleString()}`;
+      document.getElementById("dashAnnualSavings").textContent = `₹${annualEstimatedSavings.toLocaleString()}`;
+      document.getElementById("dashBlendedRate").textContent = `₹${effectiveBlendedRate}/u`;
+
+      // Render Payback Table inside Dashboard
+      const dashTable = document.getElementById("dashPaybackTable");
+      dashTable.innerHTML = "";
+      inventory.forEach(item => {
+        const kw = (item.qty * item.watts) / 1000;
+        const dailyKWh = kw * item.hours * item.duty;
+        const periodKWh = dailyKWh * billingDays;
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
+        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
+
+        const monthlySavings = (savingsKWh * (30 / billingDays)) * blendedRate;
+        const paybackMonths = monthlySavings > 0 ? (item.ecmCost / monthlySavings).toFixed(1) : "0.0";
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-900/60 transition-colors";
+        tr.innerHTML = `
+          <td class="py-2 px-2 text-slate-300 font-medium">${escapeHtml(item.zone)}</td>
+          <td class="py-2 px-2 text-white font-semibold">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
+          <td class="py-2 px-2 text-right font-mono text-cyan-400 font-bold">${savingsKWh.toFixed(1)} kWh</td>
+          <td class="py-2 px-2 text-right font-mono text-slate-300">₹${item.ecmCost.toLocaleString()}</td>
+          <td class="py-2 px-2 text-right font-mono font-bold text-emerald-400">${paybackMonths} mo</td>
+        `;
+        dashTable.appendChild(tr);
+      });
+
+      // Render Charts with Chart.js
+      renderCategoryChart(categoryTotals);
+      renderEnergyBalanceChart(totalPeriodDemandKWh, solarOnSiteKWh, solarExportedKWh, gridImportedKWh);
+    }
+
+    function renderCategoryChart(categoryTotals) {
+      const ctx = document.getElementById("chartCategory").getContext("2d");
+      const labels = Object.keys(categoryTotals);
+      const data = labels.map(k => Math.round(categoryTotals[k]));
+
+      if (chartCategoryInstance) {
+        chartCategoryInstance.destroy();
+      }
+
+      chartCategoryInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: [
+              '#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6'
+            ],
+            borderColor: '#090d16',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false, // ensures immediate render for html2canvas snapshot
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color: '#94a3b8',
+                boxWidth: 12,
+                font: { size: 10 }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderEnergyBalanceChart(demandKWh, selfUseKWh, exportKWh, importKWh) {
+      const ctx = document.getElementById("chartBalance").getContext("2d");
+
+      if (chartBalanceInstance) {
+        chartBalanceInstance.destroy();
+      }
+
+      chartBalanceInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Gross Demand', 'Solar Direct Use', 'Solar Exported', 'Utility Draw'],
+          datasets: [{
+            label: 'kWh for Period',
+            data: [
+              Math.round(demandKWh),
+              Math.round(selfUseKWh),
+              Math.round(exportKWh),
+              Math.round(importKWh)
+            ],
+            backgroundColor: [
+              '#38bdf8', // Demand (Cyan)
+              '#fbbf24', // Solar Self (Amber)
+              '#34d399', // Solar Export (Emerald)
+              '#f43f5e'  // Grid Draw (Rose)
+            ],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false, // ensures immediate render for html2canvas snapshot
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { color: '#94a3b8' },
+              grid: { color: '#1e293b' }
+            },
+            x: {
+              ticks: { color: '#94a3b8', font: { size: 10 } },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+    }
+
+    // Function to download Dashboard as high-resolution PNG using html2canvas
+    function downloadDashboardPNG() {
+      const btn = document.getElementById("btnDownloadDashboardPNG");
+      const btnText = document.getElementById("txtBtnPNG");
+      const captureTarget = document.getElementById("dashboardCaptureContainer");
+      const toast = document.getElementById("downloadToast");
+      const toastMsg = document.getElementById("toastMsg");
+
+      btn.disabled = true;
+      btnText.textContent = "Capturing...";
+      toast.classList.remove("opacity-0", "pointer-events-none");
+      toastMsg.textContent = "Rendering high-res analytics snapshot...";
+
+      // Temporarily expand scrollable container to capture complete dashboard height
+      const scrollArea = document.getElementById("dashboardPrintArea");
+      const prevOverflow = scrollArea.style.overflow;
+      const prevMaxHeight = captureTarget.style.maxHeight;
+      scrollArea.style.overflow = "visible";
+      captureTarget.style.maxHeight = "none";
+
+      setTimeout(() => {
+        html2canvas(captureTarget, {
+          backgroundColor: "#090d16",
+          scale: 2, // 2x resolution for sharp text and retina displays
+          useCORS: true,
+          logging: false
+        }).then(canvas => {
+          // Restore container sizing
+          scrollArea.style.overflow = prevOverflow;
+          captureTarget.style.maxHeight = prevMaxHeight;
+
+          // Trigger download
+          const imageURL = canvas.toDataURL("image/png");
+          const link = document.createElement("a");
+          const premises = document.getElementById("metaPremisesName").value.trim().replace(/\s+/g, "_") || "site";
+          link.download = `energy_audit_dashboard_${premises}.png`;
+          link.href = imageURL;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+
+          // Reset UI
+          btn.disabled = false;
+          btnText.textContent = "Download PNG";
+          toastMsg.textContent = "Dashboard downloaded successfully!";
+          setTimeout(() => {
+            toast.classList.add("opacity-0", "pointer-events-none");
+          }, 2000);
+        }).catch(err => {
+          scrollArea.style.overflow = prevOverflow;
+          captureTarget.style.maxHeight = prevMaxHeight;
+          btn.disabled = false;
+          btnText.textContent = "Download PNG";
+          toastMsg.textContent = "Error generating snapshot.";
+          setTimeout(() => {
+            toast.classList.add("opacity-0", "pointer-events-none");
+          }, 2000);
+        });
+      }, 150);
+    }
+
+    function openReportModal() {
+      document.getElementById("reportModal").classList.remove("hidden");
+      populateReportDetails();
+    }
+
+    function populateReportDetails() {
+      const billingDays = getBillingDays();
+      const startDate = document.getElementById("auditStartDate").value || "--";
+      const endDate = document.getElementById("auditEndDate").value || "--";
+      const season = document.getElementById("seasonProfile").value;
+
+      // Metadata extraction
+      const assessorName = document.getElementById("metaAssessorName").value.trim() || "Assessor Not Specified";
+      const assessorRole = document.getElementById("metaAssessorRole").value || "Survey Assessor";
+      const organization = document.getElementById("metaOrganization").value.trim() || "Independent Survey";
+      const location = document.getElementById("metaLocation").value.trim() || "Unspecified Location";
+      const premisesName = document.getElementById("metaPremisesName").value.trim() || "Building Facility / Residence";
+      const ownerName = document.getElementById("metaOwnerName").value.trim() || "Facility Owner";
+      const propertyCategory = document.getElementById("metaPropertyCategory").value || "Residential / Commercial";
+      const consumerNo = document.getElementById("metaConsumerNo").value.trim() || "Not Provided";
+
+      document.getElementById("repPremises").textContent = premisesName;
+      document.getElementById("repClient").textContent = ownerName;
+      document.getElementById("repLocation").textContent = location;
+      document.getElementById("repClassification").textContent = propertyCategory;
+      document.getElementById("repConsumerID").textContent = consumerNo;
+      document.getElementById("repAssessorOrg").textContent = `${assessorName} (${organization})`;
+      document.getElementById("repPeriodSpan").textContent = `${startDate} to ${endDate}`;
+      document.getElementById("repBillingDays").textContent = `${billingDays} Days (${season})`;
+      document.getElementById("repSignOwnerName").textContent = ownerName;
+      document.getElementById("repSignAssessorName").textContent = assessorName;
+      document.getElementById("repSignAssessorRole").textContent = `${assessorRole} • ${organization}`;
+
+      // Compute KPI values
+      let totalConnectedKW = 0;
+      let totalDailyDemandKWh = 0;
+
+      inventory.forEach(item => {
+        const kw = (item.qty * item.watts) / 1000;
+        totalConnectedKW += kw;
+        totalDailyDemandKWh += (kw * item.hours * item.duty);
+      });
+
+      const totalPeriodDemandKWh = totalDailyDemandKWh * billingDays;
+      const isSolarActive = document.getElementById("toggleSolarActive").checked;
+      const solarCapacityKWp = parseFloat(document.getElementById("solarCapacity").value) || 0;
+      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
+      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
+
+      let periodSolarGenKWh = 0;
+      let solarOnSiteKWh = 0;
+      let solarExportedKWh = 0;
+
+      if (isSolarActive && solarCapacityKWp > 0) {
+        periodSolarGenKWh = solarCapacityKWp * solarYield * billingDays;
+        const potentialSelfUse = periodSolarGenKWh * (selfUsePct / 100);
+        solarOnSiteKWh = Math.min(potentialSelfUse, totalPeriodDemandKWh);
+        solarExportedKWh = Math.max(0, periodSolarGenKWh - solarOnSiteKWh);
+      }
+
+      const gridImportedKWh = Math.max(0, totalPeriodDemandKWh - solarOnSiteKWh);
+
+      // Rates
+      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
+      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
+      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
+      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
+      const feedInRate = parseFloat(document.getElementById("feedInTariff").value) || 3.50;
+      const fixedRatePerKW = parseFloat(document.getElementById("fixedRatePerKW").value) || 125;
+      const sanctionedLoadKW = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
+      const taxRate = (parseFloat(document.getElementById("taxPct").value) || 16.0) / 100;
+
+      const slabCalc = calculateTelescopicCharges(gridImportedKWh, r1, r2, r3, r4);
+      const fixedChargeINR = sanctionedLoadKW * fixedRatePerKW * (billingDays / 30);
+      const electricityDutyINR = (slabCalc.energyCharge + fixedChargeINR) * taxRate;
+      const solarExportCreditINR = solarExportedKWh * feedInRate;
+      const finalNetBillINR = Math.max(0, (slabCalc.energyCharge + fixedChargeINR + electricityDutyINR) - solarExportCreditINR);
+
+      // Populate Report KPIs
+      document.getElementById("repConnectedLoad").textContent = `${totalConnectedKW.toFixed(2)} kW`;
+      document.getElementById("repGrossDemand").textContent = `${Math.round(totalPeriodDemandKWh).toLocaleString()} kWh`;
+      document.getElementById("repSolarGen").textContent = `${Math.round(periodSolarGenKWh).toLocaleString()} kWh`;
+      document.getElementById("repGridExport").textContent = `${Math.round(solarExportedKWh).toLocaleString()} kWh`;
+      document.getElementById("repGridImport").textContent = `${Math.round(gridImportedKWh).toLocaleString()} kWh`;
+      document.getElementById("repNetBill").textContent = `₹${Math.round(finalNetBillINR).toLocaleString()}`;
+
+      // Progressive Tariff Details
+      document.getElementById("repTariffFormula").textContent = slabCalc.breakdownText;
+      document.getElementById("repFixedDutyTotal").textContent = `Fixed: ₹${Math.round(fixedChargeINR)} | Duty: ₹${Math.round(electricityDutyINR)}`;
+      document.getElementById("repSolarCredit").textContent = `-₹${Math.round(solarExportCreditINR)} (${Math.round(solarExportedKWh)} kWh @ ₹${feedInRate}/u)`;
+
+      // Populate Itemized Table
+      const repTbody = document.getElementById("repInventoryTable");
+      repTbody.innerHTML = "";
+
+      inventory.forEach(item => {
+        const loadKW = (item.qty * item.watts) / 1000;
+        const dailyKWh = loadKW * item.hours * item.duty;
+        const periodKWh = dailyKWh * billingDays;
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
+        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
+
+        const tr = document.createElement("tr");
+        tr.className = "border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="p-2 text-slate-700 font-medium">${escapeHtml(item.zone)}</td>
+          <td class="p-2 font-semibold text-slate-900">${escapeHtml(item.name)}</td>
+          <td class="p-2 text-center font-mono">${item.qty}</td>
+          <td class="p-2 text-right font-mono">${item.watts}W</td>
+          <td class="p-2 text-right font-mono">${item.hours}h</td>
+          <td class="p-2 text-right font-mono font-medium">${loadKW.toFixed(2)}</td>
+          <td class="p-2 text-right font-mono font-bold text-blue-900">${periodKWh.toFixed(1)}</td>
+          <td class="p-2 text-slate-700">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
+          <td class="p-2 text-right font-mono font-bold text-emerald-700">${savingsKWh.toFixed(1)}</td>
+        `;
+        repTbody.appendChild(tr);
+      });
+    }
+
+    function handleBHKPresetChange() {
+      const preset = document.getElementById("bhkPreset").value;
+      if (preset === "1") {
+        document.getElementById("numHalls").value = 1;
+        document.getElementById("numBedrooms").value = 1;
+        document.getElementById("numKitchens").value = 1;
+      } else if (preset === "2") {
+        document.getElementById("numHalls").value = 1;
+        document.getElementById("numBedrooms").value = 2;
+        document.getElementById("numKitchens").value = 1;
+      } else if (preset === "3") {
+        document.getElementById("numHalls").value = 1;
+        document.getElementById("numBedrooms").value = 3;
+        document.getElementById("numKitchens").value = 1;
+      } else if (preset === "4") {
+        document.getElementById("numHalls").value = 2;
+        document.getElementById("numBedrooms").value = 4;
+        document.getElementById("numKitchens").value = 2;
+      }
+    }
+
+    function generateLayoutInventory() {
+      const halls = parseInt(document.getElementById("numHalls").value) || 1;
+      const bedrooms = parseInt(document.getElementById("numBedrooms").value) || 2;
+      const kitchens = parseInt(document.getElementById("numKitchens").value) || 1;
+      const includeShop = document.getElementById("includeShop").checked;
+      const includeUtilities = document.getElementById("includeUtilities").checked;
+
+      inventory = [];
+
+      // 1. Halls
+      for (let i = 1; i <= halls; i++) {
+        const zone = halls === 1 ? "Home Living Area" : `Home Living Hall ${i}`;
+        inventory.push({
+          zone: zone,
+          name: "Ceiling Fan",
+          category: "Cooling & Ventilation",
+          qty: 1,
+          watts: 75,
+          hours: 12,
+          duty: 1.0,
+          ecmName: "28W 5-Star BLDC Fan",
+          ecmWatts: 28,
+          ecmCost: 2500
+        });
+        inventory.push({
+          zone: zone,
+          name: "LED Battens & Downlights",
+          category: "Lighting",
+          qty: 2,
+          watts: 20,
+          hours: 6,
+          duty: 1.0,
+          ecmName: "12W High-Efficiency LED",
+          ecmWatts: 12,
+          ecmCost: 400
+        });
+        inventory.push({
+          zone: zone,
+          name: "Smart TV & Set-Top Box",
+          category: "Electronics & Other",
+          qty: 1,
+          watts: 110,
+          hours: 5,
+          duty: 1.0,
+          ecmName: "Smart Power Strip (Zero Standby)",
+          ecmWatts: 95,
+          ecmCost: 600
+        });
+      }
+
+      // 2. Bedrooms
+      for (let i = 1; i <= bedrooms; i++) {
+        const zone = `Home Bedroom ${i}`;
+        inventory.push({
+          zone: zone,
+          name: "Ceiling Fan",
+          category: "Cooling & Ventilation",
+          qty: 1,
+          watts: 75,
+          hours: 10,
+          duty: 1.0,
+          ecmName: "28W 5-Star BLDC Fan",
+          ecmWatts: 28,
+          ecmCost: 2500
+        });
+        inventory.push({
+          zone: zone,
+          name: "LED Tube Light",
+          category: "Lighting",
+          qty: 1,
+          watts: 20,
+          hours: 5,
+          duty: 1.0,
+          ecmName: "12W LED Tube",
+          ecmWatts: 12,
+          ecmCost: 250
+        });
+        inventory.push({
+          zone: zone,
+          name: "Water Geyser (Bath)",
+          category: "Water Heating",
+          qty: 1,
+          watts: 2000,
+          hours: 1.0,
+          duty: 0.85,
+          ecmName: "Solar Water Heater Integration",
+          ecmWatts: 0,
+          ecmCost: 15000
+        });
+
+        if (i <= 2) {
+          inventory.push({
+            zone: zone,
+            name: "1.5 Ton Split AC",
+            category: "Cooling & Ventilation",
+            qty: 1,
+            watts: 1450,
+            hours: 6,
+            duty: 0.65,
+            ecmName: "5-Star Inverter AC Upgrade",
+            ecmWatts: 950,
+            ecmCost: 38000
+          });
+        }
+      }
+
+      // 3. Kitchens
+      for (let i = 1; i <= kitchens; i++) {
+        const zone = kitchens === 1 ? "Home Kitchen" : `Home Kitchen ${i}`;
+        inventory.push({
+          zone: zone,
+          name: "Double Door Refrigerator",
+          category: "Refrigeration",
+          qty: 1,
+          watts: 220,
+          hours: 24,
+          duty: 0.40,
+          ecmName: "5-Star Inverter Refrigerator",
+          ecmWatts: 130,
+          ecmCost: 24000
+        });
+        inventory.push({
+          zone: zone,
+          name: "Exhaust Fan & Lighting",
+          category: "Cooling & Ventilation",
+          qty: 1,
+          watts: 55,
+          hours: 4,
+          duty: 1.0,
+          ecmName: "BLDC Exhaust Fan",
+          ecmWatts: 20,
+          ecmCost: 1200
+        });
+      }
+
+      // 4. Attached Shop Room
+      if (includeShop) {
+        const shopZone = "Attached Shop Room";
+        inventory.push({
+          zone: shopZone,
+          name: "Glass Door Bottle Visi-Cooler",
+          category: "Refrigeration",
+          qty: 1,
+          watts: 280,
+          hours: 24,
+          duty: 0.50,
+          ecmName: "Digital Thermostat & Condenser Service",
+          ecmWatts: 200,
+          ecmCost: 1500
+        });
+        inventory.push({
+          zone: shopZone,
+          name: "Cadbury Chocolate Deep Cooler",
+          category: "Refrigeration",
+          qty: 1,
+          watts: 120,
+          hours: 24,
+          duty: 0.45,
+          ecmName: "Door Gasket & Temp Optimization",
+          ecmWatts: 85,
+          ecmCost: 800
+        });
+        inventory.push({
+          zone: shopZone,
+          name: "Shop Ceiling Fan",
+          category: "Cooling & Ventilation",
+          qty: 1,
+          watts: 75,
+          hours: 14,
+          duty: 1.0,
+          ecmName: "28W BLDC Fan",
+          ecmWatts: 28,
+          ecmCost: 2500
+        });
+        inventory.push({
+          zone: shopZone,
+          name: "Shop Display LED Battens",
+          category: "Lighting",
+          qty: 3,
+          watts: 20,
+          hours: 13,
+          duty: 1.0,
+          ecmName: "High Lumen 14W LED Tubes",
+          ecmWatts: 14,
+          ecmCost: 750
+        });
+        inventory.push({
+          zone: shopZone,
+          name: "Electronics Repair Bench",
+          category: "Electronics & Other",
+          qty: 1,
+          watts: 100,
+          hours: 2.5,
+          duty: 0.60,
+          ecmName: "Sleep-Mode Soldering Station",
+          ecmWatts: 50,
+          ecmCost: 1200
+        });
+      }
+
+      // 5. Common Utilities
+      if (includeUtilities) {
+        const utilZone = "Common & Utility Infrastructure";
+        inventory.push({
+          zone: utilZone,
+          name: "Mahanagar Palika Regular Water Motor (0.75 HP)",
+          category: "Water Pumping",
+          qty: 1,
+          watts: 550,
+          hours: 1.0,
+          duty: 1.0,
+          ecmName: "Automatic Tank Float Switch",
+          ecmWatts: 550,
+          ecmCost: 500
+        });
+        inventory.push({
+          zone: utilZone,
+          name: "Deep Borewell Submersible Motor (1.5 HP)",
+          category: "Water Pumping",
+          qty: 1,
+          watts: 1119,
+          hours: 1.5,
+          duty: 1.0,
+          ecmName: "Dry-Run Starter & Level Automation",
+          ecmWatts: 1119,
+          ecmCost: 1800
+        });
+        inventory.push({
+          zone: utilZone,
+          name: "Porch & Gate Exterior Lighting",
+          category: "Lighting",
+          qty: 2,
+          watts: 30,
+          hours: 11,
+          duty: 1.0,
+          ecmName: "Dusk-to-Dawn Photocell Sensor",
+          ecmWatts: 20,
+          ecmCost: 800
+        });
+        inventory.push({
+          zone: utilZone,
+          name: "Passage & Staircase Lights",
+          category: "Lighting",
+          qty: 4,
+          watts: 15,
+          hours: 8,
+          duty: 1.0,
+          ecmName: "PIR Motion Sensor Retrofit",
+          ecmWatts: 10,
+          ecmCost: 900
+        });
+      }
+
+      renderTable();
+      recalculate();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("inventoryTableBody");
+      tbody.innerHTML = "";
+      document.getElementById("recordCount").textContent = inventory.length;
+      const billingDays = getBillingDays();
+
+      inventory.forEach((item, index) => {
+        const loadKW = (item.qty * item.watts) / 1000;
+        const dailyKWh = loadKW * item.hours * item.duty;
+        const periodKWh = dailyKWh * billingDays;
+
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propDailyKWh = propKW * item.hours * item.duty;
+        const propPeriodKWh = propDailyKWh * billingDays;
+        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
+
+        let tagColor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/20";
+        if (item.zone.includes("Shop")) tagColor = "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        if (item.zone.includes("Utility") || item.zone.includes("Common")) tagColor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40 transition-colors border-b border-slate-800/50";
+        tr.innerHTML = `
+          <td class="py-2.5 px-3">
+            <span class="inline-block text-[10px] font-semibold px-2 py-0.5 rounded border ${tagColor}">${escapeHtml(item.zone)}</span>
+          </td>
+          <td class="py-2.5 px-3 font-semibold text-white">${escapeHtml(item.name)}</td>
+          <td class="py-2.5 px-3 text-slate-400">${escapeHtml(item.category)}</td>
+          <td class="py-2.5 px-2 text-center text-slate-300 font-mono">${item.qty}</td>
+          <td class="py-2.5 px-2 text-right font-mono text-slate-300">${item.watts}</td>
+          <td class="py-2.5 px-2 text-right font-mono text-slate-300">${item.hours}</td>
+          <td class="py-2.5 px-2 text-right font-mono text-slate-400">${item.duty}</td>
+          <td class="py-2.5 px-3 text-right font-mono text-slate-200">${loadKW.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono text-slate-200">${dailyKWh.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-right font-mono text-cyan-400 font-bold">${periodKWh.toFixed(1)}</td>
+          <td class="py-2.5 px-3 text-slate-300 text-[11px]">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
+          <td class="py-2.5 px-2 text-right font-mono text-emerald-400 font-bold">${savingsKWh.toFixed(1)}</td>
+          <td class="py-2.5 px-2 text-center">
+            <button onclick="deleteItem(${index})" class="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-950/40 transition-all" title="Delete Row">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function deleteItem(index) {
+      inventory.splice(index, 1);
+      renderTable();
+      recalculate();
+    }
+
+    function addCustomItem() {
+      const zone = document.getElementById("newZone").value;
+      const name = document.getElementById("newName").value.trim() || "Custom Appliance";
+      const category = document.getElementById("newCategory").value;
+      const watts = parseFloat(document.getElementById("newWatts").value) || 100;
+      const qty = parseInt(document.getElementById("newQty").value) || 1;
+
+      inventory.push({
+        zone: zone,
+        name: name,
+        category: category,
+        qty: qty,
+        watts: watts,
+        hours: 8,
+        duty: 0.85,
+        ecmName: "Standard Efficiency Tune",
+        ecmWatts: Math.round(watts * 0.7),
+        ecmCost: 1000
+      });
+
+      document.getElementById("newName").value = "";
+      renderTable();
+      recalculate();
+    }
+
+    function calculateTelescopicCharges(units, r1, r2, r3, r4) {
+      let energyCharge = 0;
+      let details = [];
+
+      if (units <= 0) {
+        return { energyCharge: 0, breakdownText: "0 kWh billed" };
+      }
+
+      const slab1Units = Math.min(units, 100);
+      const cost1 = slab1Units * r1;
+      energyCharge += cost1;
+      details.push(`Slab 1 (0-100u @ ₹${r1}): ₹${Math.round(cost1)}`);
+
+      if (units > 100) {
+        const slab2Units = Math.min(units - 100, 200);
+        const cost2 = slab2Units * r2;
+        energyCharge += cost2;
+        details.push(`Slab 2 (101-300u @ ₹${r2}): ₹${Math.round(cost2)}`);
+      }
+
+      if (units > 300) {
+        const slab3Units = Math.min(units - 300, 200);
+        const cost3 = slab3Units * r3;
+        energyCharge += cost3;
+        details.push(`Slab 3 (301-500u @ ₹${r3}): ₹${Math.round(cost3)}`);
+      }
+
+      if (units > 500) {
+        const slab4Units = units - 500;
+        const cost4 = slab4Units * r4;
+        energyCharge += cost4;
+        details.push(`Slab 4 (>500u @ ₹${r4}): ₹${Math.round(cost4)}`);
+      }
+
+      return {
+        energyCharge: energyCharge,
+        breakdownText: details.join(" + ")
+      };
+    }
+
+    function recalculate() {
+      const billingDays = getBillingDays();
+
+      let totalConnectedKW = 0;
+      let totalDailyDemandKWh = 0;
+
+      inventory.forEach(item => {
+        const kw = (item.qty * item.watts) / 1000;
+        totalConnectedKW += kw;
+        totalDailyDemandKWh += (kw * item.hours * item.duty);
+      });
+
+      const totalPeriodDemandKWh = totalDailyDemandKWh * billingDays;
+
+      const isSolarActive = document.getElementById("toggleSolarActive").checked;
+      const solarCapacityKWp = parseFloat(document.getElementById("solarCapacity").value) || 0;
+      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
+      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
+
+      let periodSolarGenKWh = 0;
+      let solarOnSiteKWh = 0;
+      let solarExportedKWh = 0;
+
+      if (isSolarActive && solarCapacityKWp > 0) {
+        periodSolarGenKWh = solarCapacityKWp * solarYield * billingDays;
+        const potentialSelfUse = periodSolarGenKWh * (selfUsePct / 100);
+        solarOnSiteKWh = Math.min(potentialSelfUse, totalPeriodDemandKWh);
+        solarExportedKWh = Math.max(0, periodSolarGenKWh - solarOnSiteKWh);
+      }
+
+      const gridImportedKWh = Math.max(0, totalPeriodDemandKWh - solarOnSiteKWh);
+      const netBilledKWh = Math.max(0, gridImportedKWh - solarExportedKWh);
+
+      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
+      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
+      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
+      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
+      const feedInRate = parseFloat(document.getElementById("feedInTariff").value) || 3.50;
+      const fixedRatePerKW = parseFloat(document.getElementById("fixedRatePerKW").value) || 125;
+      const sanctionedLoadKW = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
+      const taxRate = (parseFloat(document.getElementById("taxPct").value) || 16.0) / 100;
+
+      const slabCalc = calculateTelescopicCharges(gridImportedKWh, r1, r2, r3, r4);
+      const energyChargeINR = slabCalc.energyCharge;
+
+      const fixedChargeINR = sanctionedLoadKW * fixedRatePerKW * (billingDays / 30);
+      const electricityDutyINR = (energyChargeINR + fixedChargeINR) * taxRate;
+      const solarExportCreditINR = solarExportedKWh * feedInRate;
+
+      const finalNetBillINR = Math.max(0, (energyChargeINR + fixedChargeINR + electricityDutyINR) - solarExportCreditINR);
+
+      document.getElementById("kpiConnectedLoad").innerHTML = `${totalConnectedKW.toFixed(2)} <span class="text-xs font-normal text-slate-400">kW</span>`;
+      document.getElementById("kpiGrossDemand").innerHTML = `${Math.round(totalPeriodDemandKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
+      document.getElementById("kpiDailyDemand").textContent = `${totalDailyDemandKWh.toFixed(1)} kWh/day`;
+      document.getElementById("kpiSolarGen").innerHTML = `${Math.round(periodSolarGenKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
+      document.getElementById("kpiSolarSub").textContent = `Self: ${Math.round(solarOnSiteKWh)} | Export: ${Math.round(solarExportedKWh)}`;
+      document.getElementById("kpiGridExport").innerHTML = `${Math.round(solarExportedKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
+      document.getElementById("kpiGridImport").innerHTML = `${Math.round(gridImportedKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
+      document.getElementById("kpiNetBillAmount").textContent = `₹${Math.round(finalNetBillINR).toLocaleString()}`;
+      document.getElementById("kpiNetBilledSub").textContent = `${Math.round(netBilledKWh)} Net Units (${billingDays} Days)`;
+
+      document.getElementById("valEstimatedSolarPeriod").textContent = `${Math.round(periodSolarGenKWh)} kWh (${billingDays} days)`;
+
+      document.getElementById("lblGridImportExplanation").textContent = slabCalc.breakdownText;
+      document.getElementById("txtFixedCharge").textContent = `₹${Math.round(fixedChargeINR)}`;
+      document.getElementById("txtDutyCharge").textContent = `₹${Math.round(electricityDutyINR)}`;
+      document.getElementById("txtExportCredit").textContent = `-₹${Math.round(solarExportCreditINR)}`;
+    }
+
+    function exportPowerBICSV() {
+      if (inventory.length === 0) return;
+
+      const billingDays = getBillingDays();
+      const startDate = document.getElementById("auditStartDate").value;
+      const endDate = document.getElementById("auditEndDate").value;
+      const season = document.getElementById("seasonProfile").value;
+
+      const sanctionedLoad = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
+      const solarCapacity = parseFloat(document.getElementById("solarCapacity").value) || 0;
+      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
+      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
+
+      const periodSolarGen = solarCapacity * solarYield * billingDays;
+
+      let totalGrossKWh = 0;
+      inventory.forEach(item => {
+        totalGrossKWh += ((item.qty * item.watts) / 1000) * item.hours * item.duty * billingDays;
+      });
+
+      const solarSelfConsumed = Math.min(periodSolarGen * (selfUsePct / 100), totalGrossKWh);
+      const solarExported = Math.max(0, periodSolarGen - solarSelfConsumed);
+      const gridImported = Math.max(0, totalGrossKWh - solarSelfConsumed);
+      const netBilledKWh = Math.max(0, gridImported - solarExported);
+
+      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
+      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
+      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
+      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
+
+      const assessorName = document.getElementById("metaAssessorName").value.trim() || "N/A";
+      const assessorRole = document.getElementById("metaAssessorRole").value || "N/A";
+      const organization = document.getElementById("metaOrganization").value.trim() || "N/A";
+      const location = document.getElementById("metaLocation").value.trim() || "N/A";
+      const premisesName = document.getElementById("metaPremisesName").value.trim() || "N/A";
+      const ownerName = document.getElementById("metaOwnerName").value.trim() || "N/A";
+      const propertyCategory = document.getElementById("metaPropertyCategory").value || "N/A";
+      const consumerNo = document.getElementById("metaConsumerNo").value.trim() || "N/A";
+
+      const headers = [
+        "Assessor_Name",
+        "Assessor_Role",
+        "Organization",
+        "Site_Location",
+        "Premises_Name",
+        "Owner_Name",
+        "Property_Category",
+        "Consumer_Meter_No",
+        "Audit_Start_Date",
+        "Audit_End_Date",
+        "Billing_Days",
+        "Season",
+        "Zone",
+        "Appliance_Name",
+        "Category",
+        "Quantity",
+        "Rated_Watts",
+        "Daily_Hours",
+        "Duty_Cycle",
+        "Connected_Load_kW",
+        "Daily_kWh",
+        "Period_kWh",
+        "Proposed_ECM_Name",
+        "Proposed_Watts",
+        "Proposed_Period_kWh",
+        "Period_Savings_kWh",
+        "ECM_Est_Cost_INR",
+        "Payback_Months",
+        "Sanctioned_Load_kW",
+        "Solar_Installed_kWp",
+        "Period_Solar_Generated_kWh",
+        "Solar_Consumed_OnSite_kWh",
+        "Solar_Exported_To_Grid_kWh",
+        "Grid_Energy_Imported_kWh",
+        "Net_Billed_Units_kWh",
+        "Slab1_Rate_INR",
+        "Slab2_Rate_INR",
+        "Slab3_Rate_INR",
+        "Slab4_Rate_INR"
+      ];
+
+      const csvRows = [headers.join(",")];
+
+      inventory.forEach(item => {
+        const loadKW = (item.qty * item.watts) / 1000;
+        const dailyKWh = loadKW * item.hours * item.duty;
+        const periodKWh = dailyKWh * billingDays;
+
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propDailyKWh = propKW * item.hours * item.duty;
+        const propPeriodKWh = propDailyKWh * billingDays;
+        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
+
+        const blendedRate = 9.50;
+        const monthlyINR = (savingsKWh * (30 / billingDays)) * blendedRate;
+        const paybackMonths = monthlyINR > 0 ? (item.ecmCost / monthlyINR).toFixed(1) : "0.0";
+
+        const row = [
+          `"${assessorName.replace(/"/g, '""')}"`,
+          `"${assessorRole.replace(/"/g, '""')}"`,
+          `"${organization.replace(/"/g, '""')}"`,
+          `"${location.replace(/"/g, '""')}"`,
+          `"${premisesName.replace(/"/g, '""')}"`,
+          `"${ownerName.replace(/"/g, '""')}"`,
+          `"${propertyCategory.replace(/"/g, '""')}"`,
+          `"${consumerNo.replace(/"/g, '""')}"`,
+          `"${startDate}"`,
+          `"${endDate}"`,
+          billingDays,
+          `"${season}"`,
+          `"${item.zone.replace(/"/g, '""')}"`,
+          `"${item.name.replace(/"/g, '""')}"`,
+          `"${item.category.replace(/"/g, '""')}"`,
+          item.qty,
+          item.watts,
+          item.hours,
+          item.duty,
+          loadKW.toFixed(3),
+          dailyKWh.toFixed(3),
+          periodKWh.toFixed(2),
+          `"${item.ecmName.replace(/"/g, '""')}"`,
+          item.ecmWatts,
+          propPeriodKWh.toFixed(2),
+          savingsKWh.toFixed(2),
+          item.ecmCost,
+          paybackMonths,
+          sanctionedLoad,
+          solarCapacity,
+          Math.round(periodSolarGen),
+          Math.round(solarSelfConsumed),
+          Math.round(solarExported),
+          Math.round(gridImported),
+          Math.round(netBilledKWh),
+          r1,
+          r2,
+          r3,
+          r4
+        ];
+        csvRows.push(row.join(","));
+      });
+
+      const csvString = csvRows.join("\r\n");
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "building_energy_audit_with_solar_net_metering.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[tag] || tag));
+    }
+
+    // Expose deleteItem on the window object for inline row click handlers
+    window.deleteItem = deleteItem;
+  </script>
+</body>
+</html>
