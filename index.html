@@ -949,15 +949,14 @@
     </div>
   </footer>
 
-  <script>
+ <script>
     let inventory = [];
-    let chartCategoryInstance = null;
-    let chartBalanceInstance = null;
+    let donutChartInstance = null;
+    let barChartInstance = null;
 
     document.addEventListener("DOMContentLoaded", () => {
       initDatePickers();
       bindEvents();
-      bindModalEvents();
       generateLayoutInventory();
     });
 
@@ -965,7 +964,6 @@
       const end = new Date();
       const start = new Date();
       start.setDate(end.getDate() - 30);
-
       document.getElementById("auditStartDate").value = formatDate(start);
       document.getElementById("auditEndDate").value = formatDate(end);
       updateDateRangeCalculations();
@@ -982,7 +980,6 @@
       const startVal = document.getElementById("auditStartDate").value;
       const endVal = document.getElementById("auditEndDate").value;
       if (!startVal || !endVal) return 30;
-
       const d1 = new Date(startVal);
       const d2 = new Date(endVal);
       const diffTime = d2.getTime() - d1.getTime();
@@ -1002,7 +999,6 @@
       document.getElementById("btnApplyLayout").addEventListener("click", generateLayoutInventory);
 
       document.getElementById("btnResetDefault").addEventListener("click", () => {
-        // Clear all profile & site metadata inputs
         document.getElementById("metaAssessorName").value = "";
         document.getElementById("metaAssessorRole").value = "";
         document.getElementById("metaOrganization").value = "";
@@ -1012,7 +1008,6 @@
         document.getElementById("metaPropertyCategory").value = "";
         document.getElementById("metaConsumerNo").value = "";
 
-        // Reset configuration defaults
         document.getElementById("bhkPreset").value = "2";
         handleBHKPresetChange();
         initDatePickers();
@@ -1060,453 +1055,19 @@
         e.preventDefault();
         addCustomItem();
       });
-    }
 
-    function bindModalEvents() {
-      // Dashboard Modal Toggles
+      // Report & Dashboard Modals
       document.getElementById("btnOpenDashboard").addEventListener("click", openDashboardModal);
       document.getElementById("btnCloseDashboard").addEventListener("click", () => {
         document.getElementById("dashboardModal").classList.add("hidden");
       });
 
-      // Report Modal Toggles
       document.getElementById("btnOpenReport").addEventListener("click", openReportModal);
       document.getElementById("btnCloseReport").addEventListener("click", () => {
         document.getElementById("reportModal").classList.add("hidden");
       });
 
-      // Switch from Dashboard directly to Report
-      document.getElementById("btnSwitchToReport").addEventListener("click", () => {
-        document.getElementById("dashboardModal").classList.add("hidden");
-        openReportModal();
-      });
-
-      // Download Dashboard as PNG
       document.getElementById("btnDownloadDashboardPNG").addEventListener("click", downloadDashboardPNG);
-
-      // Print / PDF Dashboard
-      document.getElementById("btnPrintDashboard").addEventListener("click", () => {
-        document.body.classList.remove("printing-report");
-        document.body.classList.add("printing-dashboard");
-        window.print();
-        setTimeout(() => {
-          document.body.classList.remove("printing-dashboard");
-        }, 1000);
-      });
-
-      // Print Report
-      document.getElementById("btnPrintReport").addEventListener("click", () => {
-        document.body.classList.remove("printing-dashboard");
-        document.body.classList.add("printing-report");
-        window.print();
-        setTimeout(() => {
-          document.body.classList.remove("printing-report");
-        }, 1000);
-      });
-
-      // Close modals when clicking backdrop
-      window.addEventListener("click", (e) => {
-        const dash = document.getElementById("dashboardModal");
-        const rep = document.getElementById("reportModal");
-        if (e.target === dash) dash.classList.add("hidden");
-        if (e.target === rep) rep.classList.add("hidden");
-      });
-    }
-
-    function openDashboardModal() {
-      document.getElementById("dashboardModal").classList.remove("hidden");
-      renderDashboardAnalytics();
-    }
-
-    function renderDashboardAnalytics() {
-      const billingDays = getBillingDays();
-      let totalConnectedKW = 0;
-      let totalDailyDemandKWh = 0;
-      const categoryTotals = {};
-      let totalECMPeriodSavings = 0;
-
-      inventory.forEach(item => {
-        const kw = (item.qty * item.watts) / 1000;
-        const dailyKWh = kw * item.hours * item.duty;
-        const periodKWh = dailyKWh * billingDays;
-
-        const propKW = (item.qty * item.ecmWatts) / 1000;
-        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
-        totalECMPeriodSavings += Math.max(0, periodKWh - propPeriodKWh);
-
-        totalConnectedKW += kw;
-        totalDailyDemandKWh += dailyKWh;
-        categoryTotals[item.category] = (categoryTotals[item.category] || 0) + periodKWh;
-      });
-
-      const totalPeriodDemandKWh = totalDailyDemandKWh * billingDays;
-      const isSolarActive = document.getElementById("toggleSolarActive").checked;
-      const solarCapacityKWp = parseFloat(document.getElementById("solarCapacity").value) || 0;
-      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
-      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
-
-      let periodSolarGenKWh = 0;
-      let solarOnSiteKWh = 0;
-      let solarExportedKWh = 0;
-
-      if (isSolarActive && solarCapacityKWp > 0) {
-        periodSolarGenKWh = solarCapacityKWp * solarYield * billingDays;
-        const potentialSelfUse = periodSolarGenKWh * (selfUsePct / 100);
-        solarOnSiteKWh = Math.min(potentialSelfUse, totalPeriodDemandKWh);
-        solarExportedKWh = Math.max(0, periodSolarGenKWh - solarOnSiteKWh);
-      }
-
-      const gridImportedKWh = Math.max(0, totalPeriodDemandKWh - solarOnSiteKWh);
-
-      // Telescopic Rates
-      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
-      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
-      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
-      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
-      const feedInRate = parseFloat(document.getElementById("feedInTariff").value) || 3.50;
-      const fixedRatePerKW = parseFloat(document.getElementById("fixedRatePerKW").value) || 125;
-      const sanctionedLoadKW = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
-      const taxRate = (parseFloat(document.getElementById("taxPct").value) || 16.0) / 100;
-
-      // Without solar baseline calculation
-      const baselineSlab = calculateTelescopicCharges(totalPeriodDemandKWh, r1, r2, r3, r4);
-      const fixedChargeINR = sanctionedLoadKW * fixedRatePerKW * (billingDays / 30);
-      const baselineDuty = (baselineSlab.energyCharge + fixedChargeINR) * taxRate;
-      const baselineTotalINR = baselineSlab.energyCharge + fixedChargeINR + baselineDuty;
-
-      // With solar calculation
-      const currentSlab = calculateTelescopicCharges(gridImportedKWh, r1, r2, r3, r4);
-      const currentDuty = (currentSlab.energyCharge + fixedChargeINR) * taxRate;
-      const solarExportCreditINR = solarExportedKWh * feedInRate;
-      const finalNetBillINR = Math.max(0, (currentSlab.energyCharge + fixedChargeINR + currentDuty) - solarExportCreditINR);
-
-      // Financial Savings
-      const blendedRate = totalPeriodDemandKWh > 0 ? (baselineTotalINR / totalPeriodDemandKWh) : 8.5;
-      const periodSolarSavingsINR = Math.max(0, baselineTotalINR - finalNetBillINR);
-      const periodECMSavingsINR = totalECMPeriodSavings * blendedRate;
-      const totalPeriodSavingsINR = periodSolarSavingsINR + periodECMSavingsINR;
-
-      const monthlyEstimatedSavings = Math.round(totalPeriodSavingsINR * (30 / billingDays));
-      const annualEstimatedSavings = monthlyEstimatedSavings * 12;
-
-      const coverageRatio = totalPeriodDemandKWh > 0 ? Math.min(100, Math.round((periodSolarGenKWh / totalPeriodDemandKWh) * 100)) : 0;
-      const effectiveBlendedRate = gridImportedKWh > 0 ? (finalNetBillINR / gridImportedKWh).toFixed(2) : "0.00";
-
-      // Fill Dashboard Header Metadata
-      const premises = document.getElementById("metaPremisesName").value.trim() || "Building Audit";
-      const client = document.getElementById("metaOwnerName").value.trim() || "Premises Owner";
-      const start = document.getElementById("auditStartDate").value || "";
-      const end = document.getElementById("auditEndDate").value || "";
-      document.getElementById("dashPremisesName").textContent = premises;
-      document.getElementById("dashClientName").textContent = client;
-      document.getElementById("dashPeriodSpan").textContent = `${billingDays} Days (${start} to ${end})`;
-
-      // Fill Dashboard KPIs
-      document.getElementById("dashSolarCoverage").textContent = `${coverageRatio}%`;
-      document.getElementById("dashMonthlySavings").textContent = `₹${monthlyEstimatedSavings.toLocaleString()}`;
-      document.getElementById("dashAnnualSavings").textContent = `₹${annualEstimatedSavings.toLocaleString()}`;
-      document.getElementById("dashBlendedRate").textContent = `₹${effectiveBlendedRate}/u`;
-
-      // Render Payback Table inside Dashboard
-      const dashTable = document.getElementById("dashPaybackTable");
-      dashTable.innerHTML = "";
-      inventory.forEach(item => {
-        const kw = (item.qty * item.watts) / 1000;
-        const dailyKWh = kw * item.hours * item.duty;
-        const periodKWh = dailyKWh * billingDays;
-        const propKW = (item.qty * item.ecmWatts) / 1000;
-        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
-        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
-
-        const monthlySavings = (savingsKWh * (30 / billingDays)) * blendedRate;
-        const paybackMonths = monthlySavings > 0 ? (item.ecmCost / monthlySavings).toFixed(1) : "0.0";
-
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-900/60 transition-colors";
-        tr.innerHTML = `
-          <td class="py-2 px-2 text-slate-300 font-medium">${escapeHtml(item.zone)}</td>
-          <td class="py-2 px-2 text-white font-semibold">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
-          <td class="py-2 px-2 text-right font-mono text-cyan-400 font-bold">${savingsKWh.toFixed(1)} kWh</td>
-          <td class="py-2 px-2 text-right font-mono text-slate-300">₹${item.ecmCost.toLocaleString()}</td>
-          <td class="py-2 px-2 text-right font-mono font-bold text-emerald-400">${paybackMonths} mo</td>
-        `;
-        dashTable.appendChild(tr);
-      });
-
-      // Render Charts with Chart.js
-      renderCategoryChart(categoryTotals);
-      renderEnergyBalanceChart(totalPeriodDemandKWh, solarOnSiteKWh, solarExportedKWh, gridImportedKWh);
-    }
-
-    function renderCategoryChart(categoryTotals) {
-      const ctx = document.getElementById("chartCategory").getContext("2d");
-      const labels = Object.keys(categoryTotals);
-      const data = labels.map(k => Math.round(categoryTotals[k]));
-
-      if (chartCategoryInstance) {
-        chartCategoryInstance.destroy();
-      }
-
-      chartCategoryInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: labels,
-          datasets: [{
-            data: data,
-            backgroundColor: [
-              '#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6'
-            ],
-            borderColor: '#090d16',
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false, // ensures immediate render for html2canvas snapshot
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                color: '#94a3b8',
-                boxWidth: 12,
-                font: { size: 10 }
-              }
-            }
-          }
-        }
-      });
-    }
-
-    function renderEnergyBalanceChart(demandKWh, selfUseKWh, exportKWh, importKWh) {
-      const ctx = document.getElementById("chartBalance").getContext("2d");
-
-      if (chartBalanceInstance) {
-        chartBalanceInstance.destroy();
-      }
-
-      chartBalanceInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Gross Demand', 'Solar Direct Use', 'Solar Exported', 'Utility Draw'],
-          datasets: [{
-            label: 'kWh for Period',
-            data: [
-              Math.round(demandKWh),
-              Math.round(selfUseKWh),
-              Math.round(exportKWh),
-              Math.round(importKWh)
-            ],
-            backgroundColor: [
-              '#38bdf8', // Demand (Cyan)
-              '#fbbf24', // Solar Self (Amber)
-              '#34d399', // Solar Export (Emerald)
-              '#f43f5e'  // Grid Draw (Rose)
-            ],
-            borderRadius: 6
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false, // ensures immediate render for html2canvas snapshot
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: { color: '#94a3b8' },
-              grid: { color: '#1e293b' }
-            },
-            x: {
-              ticks: { color: '#94a3b8', font: { size: 10 } },
-              grid: { display: false }
-            }
-          },
-          plugins: {
-            legend: { display: false }
-          }
-        }
-      });
-    }
-
-    // Function to download Dashboard as high-resolution PNG using html2canvas
-    function downloadDashboardPNG() {
-      const btn = document.getElementById("btnDownloadDashboardPNG");
-      const btnText = document.getElementById("txtBtnPNG");
-      const captureTarget = document.getElementById("dashboardCaptureContainer");
-      const toast = document.getElementById("downloadToast");
-      const toastMsg = document.getElementById("toastMsg");
-
-      btn.disabled = true;
-      btnText.textContent = "Capturing...";
-      toast.classList.remove("opacity-0", "pointer-events-none");
-      toastMsg.textContent = "Rendering high-res analytics snapshot...";
-
-      // Temporarily expand scrollable container to capture complete dashboard height
-      const scrollArea = document.getElementById("dashboardPrintArea");
-      const prevOverflow = scrollArea.style.overflow;
-      const prevMaxHeight = captureTarget.style.maxHeight;
-      scrollArea.style.overflow = "visible";
-      captureTarget.style.maxHeight = "none";
-
-      setTimeout(() => {
-        html2canvas(captureTarget, {
-          backgroundColor: "#090d16",
-          scale: 2, // 2x resolution for sharp text and retina displays
-          useCORS: true,
-          logging: false
-        }).then(canvas => {
-          // Restore container sizing
-          scrollArea.style.overflow = prevOverflow;
-          captureTarget.style.maxHeight = prevMaxHeight;
-
-          // Trigger download
-          const imageURL = canvas.toDataURL("image/png");
-          const link = document.createElement("a");
-          const premises = document.getElementById("metaPremisesName").value.trim().replace(/\s+/g, "_") || "site";
-          link.download = `energy_audit_dashboard_${premises}.png`;
-          link.href = imageURL;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          // Reset UI
-          btn.disabled = false;
-          btnText.textContent = "Download PNG";
-          toastMsg.textContent = "Dashboard downloaded successfully!";
-          setTimeout(() => {
-            toast.classList.add("opacity-0", "pointer-events-none");
-          }, 2000);
-        }).catch(err => {
-          scrollArea.style.overflow = prevOverflow;
-          captureTarget.style.maxHeight = prevMaxHeight;
-          btn.disabled = false;
-          btnText.textContent = "Download PNG";
-          toastMsg.textContent = "Error generating snapshot.";
-          setTimeout(() => {
-            toast.classList.add("opacity-0", "pointer-events-none");
-          }, 2000);
-        });
-      }, 150);
-    }
-
-    function openReportModal() {
-      document.getElementById("reportModal").classList.remove("hidden");
-      populateReportDetails();
-    }
-
-    function populateReportDetails() {
-      const billingDays = getBillingDays();
-      const startDate = document.getElementById("auditStartDate").value || "--";
-      const endDate = document.getElementById("auditEndDate").value || "--";
-      const season = document.getElementById("seasonProfile").value;
-
-      // Metadata extraction
-      const assessorName = document.getElementById("metaAssessorName").value.trim() || "Assessor Not Specified";
-      const assessorRole = document.getElementById("metaAssessorRole").value || "Survey Assessor";
-      const organization = document.getElementById("metaOrganization").value.trim() || "Independent Survey";
-      const location = document.getElementById("metaLocation").value.trim() || "Unspecified Location";
-      const premisesName = document.getElementById("metaPremisesName").value.trim() || "Building Facility / Residence";
-      const ownerName = document.getElementById("metaOwnerName").value.trim() || "Facility Owner";
-      const propertyCategory = document.getElementById("metaPropertyCategory").value || "Residential / Commercial";
-      const consumerNo = document.getElementById("metaConsumerNo").value.trim() || "Not Provided";
-
-      document.getElementById("repPremises").textContent = premisesName;
-      document.getElementById("repClient").textContent = ownerName;
-      document.getElementById("repLocation").textContent = location;
-      document.getElementById("repClassification").textContent = propertyCategory;
-      document.getElementById("repConsumerID").textContent = consumerNo;
-      document.getElementById("repAssessorOrg").textContent = `${assessorName} (${organization})`;
-      document.getElementById("repPeriodSpan").textContent = `${startDate} to ${endDate}`;
-      document.getElementById("repBillingDays").textContent = `${billingDays} Days (${season})`;
-      document.getElementById("repSignOwnerName").textContent = ownerName;
-      document.getElementById("repSignAssessorName").textContent = assessorName;
-      document.getElementById("repSignAssessorRole").textContent = `${assessorRole} • ${organization}`;
-
-      // Compute KPI values
-      let totalConnectedKW = 0;
-      let totalDailyDemandKWh = 0;
-
-      inventory.forEach(item => {
-        const kw = (item.qty * item.watts) / 1000;
-        totalConnectedKW += kw;
-        totalDailyDemandKWh += (kw * item.hours * item.duty);
-      });
-
-      const totalPeriodDemandKWh = totalDailyDemandKWh * billingDays;
-      const isSolarActive = document.getElementById("toggleSolarActive").checked;
-      const solarCapacityKWp = parseFloat(document.getElementById("solarCapacity").value) || 0;
-      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
-      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
-
-      let periodSolarGenKWh = 0;
-      let solarOnSiteKWh = 0;
-      let solarExportedKWh = 0;
-
-      if (isSolarActive && solarCapacityKWp > 0) {
-        periodSolarGenKWh = solarCapacityKWp * solarYield * billingDays;
-        const potentialSelfUse = periodSolarGenKWh * (selfUsePct / 100);
-        solarOnSiteKWh = Math.min(potentialSelfUse, totalPeriodDemandKWh);
-        solarExportedKWh = Math.max(0, periodSolarGenKWh - solarOnSiteKWh);
-      }
-
-      const gridImportedKWh = Math.max(0, totalPeriodDemandKWh - solarOnSiteKWh);
-
-      // Rates
-      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
-      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
-      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
-      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
-      const feedInRate = parseFloat(document.getElementById("feedInTariff").value) || 3.50;
-      const fixedRatePerKW = parseFloat(document.getElementById("fixedRatePerKW").value) || 125;
-      const sanctionedLoadKW = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
-      const taxRate = (parseFloat(document.getElementById("taxPct").value) || 16.0) / 100;
-
-      const slabCalc = calculateTelescopicCharges(gridImportedKWh, r1, r2, r3, r4);
-      const fixedChargeINR = sanctionedLoadKW * fixedRatePerKW * (billingDays / 30);
-      const electricityDutyINR = (slabCalc.energyCharge + fixedChargeINR) * taxRate;
-      const solarExportCreditINR = solarExportedKWh * feedInRate;
-      const finalNetBillINR = Math.max(0, (slabCalc.energyCharge + fixedChargeINR + electricityDutyINR) - solarExportCreditINR);
-
-      // Populate Report KPIs
-      document.getElementById("repConnectedLoad").textContent = `${totalConnectedKW.toFixed(2)} kW`;
-      document.getElementById("repGrossDemand").textContent = `${Math.round(totalPeriodDemandKWh).toLocaleString()} kWh`;
-      document.getElementById("repSolarGen").textContent = `${Math.round(periodSolarGenKWh).toLocaleString()} kWh`;
-      document.getElementById("repGridExport").textContent = `${Math.round(solarExportedKWh).toLocaleString()} kWh`;
-      document.getElementById("repGridImport").textContent = `${Math.round(gridImportedKWh).toLocaleString()} kWh`;
-      document.getElementById("repNetBill").textContent = `₹${Math.round(finalNetBillINR).toLocaleString()}`;
-
-      // Progressive Tariff Details
-      document.getElementById("repTariffFormula").textContent = slabCalc.breakdownText;
-      document.getElementById("repFixedDutyTotal").textContent = `Fixed: ₹${Math.round(fixedChargeINR)} | Duty: ₹${Math.round(electricityDutyINR)}`;
-      document.getElementById("repSolarCredit").textContent = `-₹${Math.round(solarExportCreditINR)} (${Math.round(solarExportedKWh)} kWh @ ₹${feedInRate}/u)`;
-
-      // Populate Itemized Table
-      const repTbody = document.getElementById("repInventoryTable");
-      repTbody.innerHTML = "";
-
-      inventory.forEach(item => {
-        const loadKW = (item.qty * item.watts) / 1000;
-        const dailyKWh = loadKW * item.hours * item.duty;
-        const periodKWh = dailyKWh * billingDays;
-        const propKW = (item.qty * item.ecmWatts) / 1000;
-        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
-        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
-
-        const tr = document.createElement("tr");
-        tr.className = "border-b border-slate-100";
-        tr.innerHTML = `
-          <td class="p-2 text-slate-700 font-medium">${escapeHtml(item.zone)}</td>
-          <td class="p-2 font-semibold text-slate-900">${escapeHtml(item.name)}</td>
-          <td class="p-2 text-center font-mono">${item.qty}</td>
-          <td class="p-2 text-right font-mono">${item.watts}W</td>
-          <td class="p-2 text-right font-mono">${item.hours}h</td>
-          <td class="p-2 text-right font-mono font-medium">${loadKW.toFixed(2)}</td>
-          <td class="p-2 text-right font-mono font-bold text-blue-900">${periodKWh.toFixed(1)}</td>
-          <td class="p-2 text-slate-700">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
-          <td class="p-2 text-right font-mono font-bold text-emerald-700">${savingsKWh.toFixed(1)}</td>
-        `;
-        repTbody.appendChild(tr);
-      });
     }
 
     function handleBHKPresetChange() {
@@ -1539,7 +1100,6 @@
 
       inventory = [];
 
-      // 1. Halls
       for (let i = 1; i <= halls; i++) {
         const zone = halls === 1 ? "Home Living Area" : `Home Living Hall ${i}`;
         inventory.push({
@@ -1580,7 +1140,6 @@
         });
       }
 
-      // 2. Bedrooms
       for (let i = 1; i <= bedrooms; i++) {
         const zone = `Home Bedroom ${i}`;
         inventory.push({
@@ -1636,7 +1195,6 @@
         }
       }
 
-      // 3. Kitchens
       for (let i = 1; i <= kitchens; i++) {
         const zone = kitchens === 1 ? "Home Kitchen" : `Home Kitchen ${i}`;
         inventory.push({
@@ -1665,7 +1223,6 @@
         });
       }
 
-      // 4. Attached Shop Room
       if (includeShop) {
         const shopZone = "Attached Shop Room";
         inventory.push({
@@ -1676,7 +1233,7 @@
           watts: 280,
           hours: 24,
           duty: 0.50,
-          ecmName: "Digital Thermostat & Condenser Service",
+          ecmName: "Digital Thermostat & Servicing",
           ecmWatts: 200,
           ecmCost: 1500
         });
@@ -1730,12 +1287,11 @@
         });
       }
 
-      // 5. Common Utilities
       if (includeUtilities) {
         const utilZone = "Common & Utility Infrastructure";
         inventory.push({
           zone: utilZone,
-          name: "Mahanagar Palika Regular Water Motor (0.75 HP)",
+          name: "Palika Water Motor (0.75 HP)",
           category: "Water Pumping",
           qty: 1,
           watts: 550,
@@ -1747,19 +1303,19 @@
         });
         inventory.push({
           zone: utilZone,
-          name: "Deep Borewell Submersible Motor (1.5 HP)",
+          name: "Borewell Submersible Motor (1.5 HP)",
           category: "Water Pumping",
           qty: 1,
           watts: 1119,
           hours: 1.5,
           duty: 1.0,
-          ecmName: "Dry-Run Starter & Level Automation",
+          ecmName: "Dry-Run Starter & Automation",
           ecmWatts: 1119,
           ecmCost: 1800
         });
         inventory.push({
           zone: utilZone,
-          name: "Porch & Gate Exterior Lighting",
+          name: "Porch & Exterior Lighting",
           category: "Lighting",
           qty: 2,
           watts: 30,
@@ -1876,27 +1432,27 @@
       const slab1Units = Math.min(units, 100);
       const cost1 = slab1Units * r1;
       energyCharge += cost1;
-      details.push(`Slab 1 (0-100u @ ₹${r1}): ₹${Math.round(cost1)}`);
+      details.push(`S1 (0-100u @ ₹${r1}): ₹${Math.round(cost1)}`);
 
       if (units > 100) {
         const slab2Units = Math.min(units - 100, 200);
         const cost2 = slab2Units * r2;
         energyCharge += cost2;
-        details.push(`Slab 2 (101-300u @ ₹${r2}): ₹${Math.round(cost2)}`);
+        details.push(`S2 (101-300u @ ₹${r2}): ₹${Math.round(cost2)}`);
       }
 
       if (units > 300) {
         const slab3Units = Math.min(units - 300, 200);
         const cost3 = slab3Units * r3;
         energyCharge += cost3;
-        details.push(`Slab 3 (301-500u @ ₹${r3}): ₹${Math.round(cost3)}`);
+        details.push(`S3 (301-500u @ ₹${r3}): ₹${Math.round(cost3)}`);
       }
 
       if (units > 500) {
         const slab4Units = units - 500;
         const cost4 = slab4Units * r4;
         energyCharge += cost4;
-        details.push(`Slab 4 (>500u @ ₹${r4}): ₹${Math.round(cost4)}`);
+        details.push(`S4 (>500u @ ₹${r4}): ₹${Math.round(cost4)}`);
       }
 
       return {
@@ -1964,181 +1520,252 @@
       document.getElementById("kpiGridExport").innerHTML = `${Math.round(solarExportedKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
       document.getElementById("kpiGridImport").innerHTML = `${Math.round(gridImportedKWh).toLocaleString()} <span class="text-xs font-normal text-slate-400">kWh</span>`;
       document.getElementById("kpiNetBillAmount").textContent = `₹${Math.round(finalNetBillINR).toLocaleString()}`;
-      document.getElementById("kpiNetBilledSub").textContent = `${Math.round(netBilledKWh)} Net Units (${billingDays} Days)`;
-
-      document.getElementById("valEstimatedSolarPeriod").textContent = `${Math.round(periodSolarGenKWh)} kWh (${billingDays} days)`;
+      document.getElementById("kpiNetBilledSub").textContent = `${Math.round(netBilledKWh)} Net Units`;
 
       document.getElementById("lblGridImportExplanation").textContent = slabCalc.breakdownText;
       document.getElementById("txtFixedCharge").textContent = `₹${Math.round(fixedChargeINR)}`;
       document.getElementById("txtDutyCharge").textContent = `₹${Math.round(electricityDutyINR)}`;
       document.getElementById("txtExportCredit").textContent = `-₹${Math.round(solarExportCreditINR)}`;
+      document.getElementById("valEstimatedSolarPeriod").textContent = `${Math.round(periodSolarGenKWh)} kWh`;
+
+      return {
+        totalConnectedKW,
+        totalPeriodDemandKWh,
+        periodSolarGenKWh,
+        solarOnSiteKWh,
+        solarExportedKWh,
+        gridImportedKWh,
+        finalNetBillINR,
+        netBilledKWh,
+        sanctionedLoadKW
+      };
+    }
+
+    function openReportModal() {
+      const calc = recalculate();
+      const billingDays = getBillingDays();
+
+      const premises = document.getElementById("metaPremisesName").value.trim() || "Residential & Commercial Complex";
+      const owner = document.getElementById("metaOwnerName").value.trim() || "Property Owner";
+      const assessor = document.getElementById("metaAssessorName").value.trim() || "Er. Pratik G Patil";
+      const role = document.getElementById("metaAssessorRole").value.trim() || "Energy Auditor & Project Lead";
+      const org = document.getElementById("metaOrganization").value.trim() || "AI & Energy Analytics Division";
+      const loc = document.getElementById("metaLocation").value.trim() || "Maharashtra, India";
+      const cat = document.getElementById("metaPropertyCategory").value || "Mixed-Use (Residential + Commercial)";
+      const consumer = document.getElementById("metaConsumerNo").value.trim() || "DISCOM-LT-982134";
+
+      document.getElementById("repPremises").textContent = premises;
+      document.getElementById("repOwner").textContent = owner;
+      document.getElementById("repAssessor").textContent = assessor;
+      document.getElementById("repOrg").textContent = `${role} (${org})`;
+      document.getElementById("repLocation").textContent = loc;
+      document.getElementById("repClassification").textContent = cat;
+      document.getElementById("repConsumer").textContent = consumer;
+      document.getElementById("repPeriod").textContent = `${billingDays} Days (${document.getElementById("auditStartDate").value} to ${document.getElementById("auditEndDate").value})`;
+
+      document.getElementById("repConnectedLoad").textContent = `${calc.totalConnectedKW.toFixed(2)} kW`;
+      document.getElementById("repSanctioned").textContent = `${calc.sanctionedLoadKW} kW`;
+      document.getElementById("repGrossDemand").textContent = `${Math.round(calc.totalPeriodDemandKWh).toLocaleString()} kWh`;
+      document.getElementById("repSolarCap").textContent = `${document.getElementById("solarCapacity").value} kWp`;
+      document.getElementById("repSolarGen").textContent = `${Math.round(calc.periodSolarGenKWh).toLocaleString()} kWh`;
+      document.getElementById("repExport").textContent = `${Math.round(calc.solarExportedKWh).toLocaleString()} kWh`;
+      document.getElementById("repNetBill").textContent = `₹${Math.round(calc.finalNetBillINR).toLocaleString()}`;
+      document.getElementById("repNetUnits").textContent = `${Math.round(calc.netBilledKWh)} Net Units`;
+
+      document.getElementById("sigAssessorName").textContent = assessor;
+      document.getElementById("sigAssessorRole").textContent = role;
+      document.getElementById("sigOwnerName").textContent = owner;
+
+      const repTbody = document.getElementById("repInventoryTableBody");
+      repTbody.innerHTML = "";
+
+      inventory.forEach(item => {
+        const kw = (item.qty * item.watts) / 1000;
+        const periodKWh = kw * item.hours * item.duty * billingDays;
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const propPeriodKWh = propKW * item.hours * item.duty * billingDays;
+        const savings = Math.max(0, periodKWh - propPeriodKWh);
+
+        const tr = document.createElement("tr");
+        tr.className = "border-b border-slate-200";
+        tr.innerHTML = `
+          <td class="p-1.5 border border-slate-300 font-medium">${escapeHtml(item.zone)}</td>
+          <td class="p-1.5 border border-slate-300">${escapeHtml(item.name)}</td>
+          <td class="p-1.5 border border-slate-300 text-center">${item.qty}</td>
+          <td class="p-1.5 border border-slate-300 text-right">${item.watts}W</td>
+          <td class="p-1.5 border border-slate-300 text-right">${item.hours}h</td>
+          <td class="p-1.5 border border-slate-300 text-right font-mono font-bold">${periodKWh.toFixed(1)}</td>
+          <td class="p-1.5 border border-slate-300 text-emerald-800">${escapeHtml(item.ecmName)} (${item.ecmWatts}W)</td>
+          <td class="p-1.5 border border-slate-300 text-right font-mono font-bold text-emerald-700">${savings.toFixed(1)}</td>
+        `;
+        repTbody.appendChild(tr);
+      });
+
+      document.getElementById("reportModal").classList.remove("hidden");
+    }
+
+    function openDashboardModal() {
+      const calc = recalculate();
+      const billingDays = getBillingDays();
+
+      const solarRatio = calc.totalPeriodDemandKWh > 0 ? (calc.periodSolarGenKWh / calc.totalPeriodDemandKWh) * 100 : 0;
+      document.getElementById("dashSolarRatio").textContent = `${solarRatio.toFixed(1)}%`;
+
+      let totalMonthlySavings = calc.solarExportedKWh * 3.5 + calc.solarOnSiteKWh * 8.0;
+      document.getElementById("dashMonthlySavings").textContent = `₹${Math.round(totalMonthlySavings).toLocaleString()}`;
+      document.getElementById("dashAnnualSavings").textContent = `₹${Math.round(totalMonthlySavings * 12).toLocaleString()}`;
+
+      const effectiveRate = calc.gridImportedKWh > 0 ? (calc.finalNetBillINR / calc.gridImportedKWh) : 0;
+      document.getElementById("dashEffectiveRate").textContent = `₹${effectiveRate.toFixed(2)} /u`;
+
+      const premises = document.getElementById("metaPremisesName").value.trim() || "Active Survey Site";
+      document.getElementById("dashMetaHeader").textContent = `${premises} | ${billingDays}-Day Demand & Solar Feasibility Model`;
+
+      renderDonutChart();
+      renderBarChart(calc);
+      populateECMMatrix(effectiveRate || 8.5);
+
+      document.getElementById("dashboardModal").classList.remove("hidden");
+    }
+
+    function renderDonutChart() {
+      const catTotals = {};
+      inventory.forEach(item => {
+        const kwh = ((item.qty * item.watts) / 1000) * item.hours * item.duty * getBillingDays();
+        catTotals[item.category] = (catTotals[item.category] || 0) + kwh;
+      });
+
+      const labels = Object.keys(catTotals);
+      const data = Object.values(catTotals);
+
+      const ctx = document.getElementById("categoryDonutChart").getContext("2d");
+      if (donutChartInstance) donutChartInstance.destroy();
+
+      donutChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: ["#06b6d4", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#3b82f6"],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { color: "#94a3b8", boxWidth: 10, font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    function renderBarChart(calc) {
+      const ctx = document.getElementById("energyBalanceBarChart").getContext("2d");
+      if (barChartInstance) barChartInstance.destroy();
+
+      barChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: ["Gross Demand", "Solar Generation", "Direct Solar Used", "Grid Export", "Grid Import"],
+          datasets: [{
+            label: "kWh",
+            data: [
+              Math.round(calc.totalPeriodDemandKWh),
+              Math.round(calc.periodSolarGenKWh),
+              Math.round(calc.solarOnSiteKWh),
+              Math.round(calc.solarExportedKWh),
+              Math.round(calc.gridImportedKWh)
+            ],
+            backgroundColor: ["#06b6d4", "#f59e0b", "#10b981", "#38bdf8", "#f43f5e"],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: { ticks: { color: "#94a3b8", font: { size: 10 } }, grid: { color: "#1e293b" } },
+            x: { ticks: { color: "#94a3b8", font: { size: 9 } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function populateECMMatrix(avgTariff) {
+      const tbody = document.getElementById("dashECMBreakdown");
+      tbody.innerHTML = "";
+
+      const uniqueECMs = {};
+      inventory.forEach(item => {
+        if (!uniqueECMs[item.ecmName]) {
+          uniqueECMs[item.ecmName] = { cost: 0, monthlySavedKWh: 0 };
+        }
+        const kw = (item.qty * item.watts) / 1000;
+        const propKW = (item.qty * item.ecmWatts) / 1000;
+        const savedKWhPerMonth = Math.max(0, (kw - propKW) * item.hours * item.duty * 30);
+
+        uniqueECMs[item.ecmName].cost += (item.ecmCost * item.qty);
+        uniqueECMs[item.ecmName].monthlySavedKWh += savedKWhPerMonth;
+      });
+
+      Object.keys(uniqueECMs).forEach(ecmName => {
+        const item = uniqueECMs[ecmName];
+        if (item.monthlySavedKWh > 0) {
+          const monthlyBillCut = item.monthlySavedKWh * avgTariff;
+          const paybackMonths = monthlyBillCut > 0 ? (item.cost / monthlyBillCut).toFixed(1) : "N/A";
+
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-900";
+          tr.innerHTML = `
+            <td class="py-2 text-slate-300 font-sans">${escapeHtml(ecmName)}</td>
+            <td class="py-2 text-right text-slate-300">₹${item.cost.toLocaleString()}</td>
+            <td class="py-2 text-right text-emerald-400">${item.monthlySavedKWh.toFixed(1)}</td>
+            <td class="py-2 text-right text-emerald-400">₹${Math.round(monthlyBillCut).toLocaleString()}</td>
+            <td class="py-2 text-right text-cyan-400 font-bold">${paybackMonths} mo</td>
+          `;
+          tbody.appendChild(tr);
+        }
+      });
+    }
+
+    function downloadDashboardPNG() {
+      const target = document.getElementById("dashboardContainer");
+      html2canvas(target, { backgroundColor: "#090d16", scale: 2 }).then(canvas => {
+        const link = document.createElement("a");
+        link.download = `Energy_Audit_Dashboard_${Date.now()}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      });
     }
 
     function exportPowerBICSV() {
-      if (inventory.length === 0) return;
-
-      const billingDays = getBillingDays();
-      const startDate = document.getElementById("auditStartDate").value;
-      const endDate = document.getElementById("auditEndDate").value;
-      const season = document.getElementById("seasonProfile").value;
-
-      const sanctionedLoad = parseFloat(document.getElementById("sanctionedLoad").value) || 8.0;
-      const solarCapacity = parseFloat(document.getElementById("solarCapacity").value) || 0;
-      const solarYield = parseFloat(document.getElementById("solarYield").value) || 4.0;
-      const selfUsePct = parseFloat(document.getElementById("selfUseSlider").value) || 45;
-
-      const periodSolarGen = solarCapacity * solarYield * billingDays;
-
-      let totalGrossKWh = 0;
-      inventory.forEach(item => {
-        totalGrossKWh += ((item.qty * item.watts) / 1000) * item.hours * item.duty * billingDays;
-      });
-
-      const solarSelfConsumed = Math.min(periodSolarGen * (selfUsePct / 100), totalGrossKWh);
-      const solarExported = Math.max(0, periodSolarGen - solarSelfConsumed);
-      const gridImported = Math.max(0, totalGrossKWh - solarSelfConsumed);
-      const netBilledKWh = Math.max(0, gridImported - solarExported);
-
-      const r1 = parseFloat(document.getElementById("rateSlab1").value) || 4.75;
-      const r2 = parseFloat(document.getElementById("rateSlab2").value) || 8.90;
-      const r3 = parseFloat(document.getElementById("rateSlab3").value) || 12.20;
-      const r4 = parseFloat(document.getElementById("rateSlab4").value) || 14.80;
-
-      const assessorName = document.getElementById("metaAssessorName").value.trim() || "N/A";
-      const assessorRole = document.getElementById("metaAssessorRole").value || "N/A";
-      const organization = document.getElementById("metaOrganization").value.trim() || "N/A";
-      const location = document.getElementById("metaLocation").value.trim() || "N/A";
-      const premisesName = document.getElementById("metaPremisesName").value.trim() || "N/A";
-      const ownerName = document.getElementById("metaOwnerName").value.trim() || "N/A";
-      const propertyCategory = document.getElementById("metaPropertyCategory").value || "N/A";
-      const consumerNo = document.getElementById("metaConsumerNo").value.trim() || "N/A";
-
-      const headers = [
-        "Assessor_Name",
-        "Assessor_Role",
-        "Organization",
-        "Site_Location",
-        "Premises_Name",
-        "Owner_Name",
-        "Property_Category",
-        "Consumer_Meter_No",
-        "Audit_Start_Date",
-        "Audit_End_Date",
-        "Billing_Days",
-        "Season",
-        "Zone",
-        "Appliance_Name",
-        "Category",
-        "Quantity",
-        "Rated_Watts",
-        "Daily_Hours",
-        "Duty_Cycle",
-        "Connected_Load_kW",
-        "Daily_kWh",
-        "Period_kWh",
-        "Proposed_ECM_Name",
-        "Proposed_Watts",
-        "Proposed_Period_kWh",
-        "Period_Savings_kWh",
-        "ECM_Est_Cost_INR",
-        "Payback_Months",
-        "Sanctioned_Load_kW",
-        "Solar_Installed_kWp",
-        "Period_Solar_Generated_kWh",
-        "Solar_Consumed_OnSite_kWh",
-        "Solar_Exported_To_Grid_kWh",
-        "Grid_Energy_Imported_kWh",
-        "Net_Billed_Units_kWh",
-        "Slab1_Rate_INR",
-        "Slab2_Rate_INR",
-        "Slab3_Rate_INR",
-        "Slab4_Rate_INR"
-      ];
-
-      const csvRows = [headers.join(",")];
-
+      let csv = "Zone,Appliance,Category,Qty,Watts,HoursPerDay,DutyCycle,Load_kW,Daily_kWh,Period_kWh,ECM_Name,ECM_Watts,ECM_Cost_INR\n";
+      const days = getBillingDays();
       inventory.forEach(item => {
         const loadKW = (item.qty * item.watts) / 1000;
         const dailyKWh = loadKW * item.hours * item.duty;
-        const periodKWh = dailyKWh * billingDays;
-
-        const propKW = (item.qty * item.ecmWatts) / 1000;
-        const propDailyKWh = propKW * item.hours * item.duty;
-        const propPeriodKWh = propDailyKWh * billingDays;
-        const savingsKWh = Math.max(0, periodKWh - propPeriodKWh);
-
-        const blendedRate = 9.50;
-        const monthlyINR = (savingsKWh * (30 / billingDays)) * blendedRate;
-        const paybackMonths = monthlyINR > 0 ? (item.ecmCost / monthlyINR).toFixed(1) : "0.0";
-
-        const row = [
-          `"${assessorName.replace(/"/g, '""')}"`,
-          `"${assessorRole.replace(/"/g, '""')}"`,
-          `"${organization.replace(/"/g, '""')}"`,
-          `"${location.replace(/"/g, '""')}"`,
-          `"${premisesName.replace(/"/g, '""')}"`,
-          `"${ownerName.replace(/"/g, '""')}"`,
-          `"${propertyCategory.replace(/"/g, '""')}"`,
-          `"${consumerNo.replace(/"/g, '""')}"`,
-          `"${startDate}"`,
-          `"${endDate}"`,
-          billingDays,
-          `"${season}"`,
-          `"${item.zone.replace(/"/g, '""')}"`,
-          `"${item.name.replace(/"/g, '""')}"`,
-          `"${item.category.replace(/"/g, '""')}"`,
-          item.qty,
-          item.watts,
-          item.hours,
-          item.duty,
-          loadKW.toFixed(3),
-          dailyKWh.toFixed(3),
-          periodKWh.toFixed(2),
-          `"${item.ecmName.replace(/"/g, '""')}"`,
-          item.ecmWatts,
-          propPeriodKWh.toFixed(2),
-          savingsKWh.toFixed(2),
-          item.ecmCost,
-          paybackMonths,
-          sanctionedLoad,
-          solarCapacity,
-          Math.round(periodSolarGen),
-          Math.round(solarSelfConsumed),
-          Math.round(solarExported),
-          Math.round(gridImported),
-          Math.round(netBilledKWh),
-          r1,
-          r2,
-          r3,
-          r4
-        ];
-        csvRows.push(row.join(","));
+        const periodKWh = dailyKWh * days;
+        csv += `"${item.zone}","${item.name}","${item.category}",${item.qty},${item.watts},${item.hours},${item.duty},${loadKW.toFixed(2)},${dailyKWh.toFixed(2)},${periodKWh.toFixed(2)},"${item.ecmName}",${item.ecmWatts},${item.ecmCost}\n`;
       });
 
-      const csvString = csvRows.join("\r\n");
-      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", "building_energy_audit_with_solar_net_metering.csv");
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `energy_audit_inventory_${Date.now()}.csv`;
+      a.click();
     }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return str.replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        "'": '&#39;',
-        '"': '&quot;'
-      }[tag] || tag));
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
     }
-
-    // Expose deleteItem on the window object for inline row click handlers
-    window.deleteItem = deleteItem;
   </script>
 </body>
 </html>
